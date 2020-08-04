@@ -166,8 +166,8 @@ the usual benefits of keeping dependencies to a minimum.
 
 ### Q: Can I generalize X, then I can do Y with minimal modifications?
 
-Code generalization often makes code harder to read. This is not intended a
-library in the sense that you import an agent and inject customized components
+Code generalization often makes code harder to read. This is not intended to be
+a library in the sense that you import an agent and inject customized components
 to do research. Instead it is designed to be easy to customize after forking. So
 rather than be everything for everyone, we aimed to keep things minimal. Then
 users can fork and generalize in the directions they specifically care about.
