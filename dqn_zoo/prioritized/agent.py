@@ -116,14 +116,14 @@ class PrioritizedDqn:
 
     self._update = jax.jit(update)
 
-    def policy(rng_key, network_params, s_t, exploration_epsilon):
-      """Computes epsilon-greedy policy wrt Q-values at given state."""
+    def select_action(rng_key, network_params, s_t, exploration_epsilon):
+      """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, apply_key, policy_key = jax.random.split(rng_key, 3)
       q_t = network.apply(network_params, apply_key, s_t[None, ...]).q_values[0]
       a_t = rlax.epsilon_greedy().sample(policy_key, q_t, exploration_epsilon)
       return rng_key, a_t
 
-    self._policy = jax.jit(policy)
+    self._select_action = jax.jit(select_action)
 
   def step(self, timestep: dm_env.TimeStep) -> parts.Action:
     """Selects action given timestep and potentially learns."""
@@ -162,8 +162,8 @@ class PrioritizedDqn:
   def _act(self, timestep) -> parts.Action:
     """Selects action given timestep, according to epsilon-greedy policy."""
     s_t = timestep.observation
-    self._rng_key, a_t = self._policy(self._rng_key, self._online_params, s_t,
-                                      self.exploration_epsilon)
+    self._rng_key, a_t = self._select_action(self._rng_key, self._online_params,
+                                             s_t, self.exploration_epsilon)
     return parts.Action(jax.device_get(a_t))
 
   def _learn(self) -> None:
