@@ -52,8 +52,8 @@ the CPU by specifying the flag `--jax_platform_name=cpu`.
 
 ## Goals
 
-*   Serve as collection of reference implementions of DQN-based agents developed
-    at DeepMind.
+*   Serve as a collection of reference implementations of DQN-based agents
+    developed at DeepMind.
 *   Reproduce results reported in papers, on average.
 *   Implement agents purely in Python, using JAX, Haiku and RLax.
 *   Have minimal dependencies.
