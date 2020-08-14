@@ -34,7 +34,7 @@ import jax
 from jax.config import config
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from dqn_zoo import atari_data
 from dqn_zoo import gym_atari
@@ -169,11 +169,11 @@ def main(argv):
   replay = replay_lib.TransitionReplay(FLAGS.replay_capacity, replay_structure,
                                        random_state, encoder, decoder)
 
-  optimizer = optix.adam(
+  optimizer = optax.adam(
       learning_rate=FLAGS.learning_rate, eps=FLAGS.optimizer_epsilon)
   if FLAGS.max_global_grad_norm > 0:
-    optimizer = optix.chain(
-        optix.clip_by_global_norm(FLAGS.max_global_grad_norm), optimizer)
+    optimizer = optax.chain(
+        optax.clip_by_global_norm(FLAGS.max_global_grad_norm), optimizer)
 
   train_rng_key, eval_rng_key = jax.random.split(rng_key)
 

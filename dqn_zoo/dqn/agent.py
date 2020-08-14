@@ -22,7 +22,7 @@ from absl import logging
 import dm_env
 import jax
 import jax.numpy as jnp
-from jax.experimental import optix
+import optax
 import rlax
 
 from dqn_zoo import parts
@@ -41,7 +41,7 @@ class Dqn:
       preprocessor: processors.Processor,
       sample_network_input: jnp.ndarray,
       network: parts.Network,
-      optimizer: optix.InitUpdate,
+      optimizer: optax.GradientTransformation,
       transition_accumulator: Any,
       replay: replay_lib.TransitionReplay,
       batch_size: int,
@@ -103,7 +103,7 @@ class Dqn:
       d_loss_d_params = jax.grad(loss_fn)(online_params, target_params,
                                           transitions, update_key)
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
-      new_online_params = optix.apply_updates(online_params, updates)
+      new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params
 
     self._update = jax.jit(update)

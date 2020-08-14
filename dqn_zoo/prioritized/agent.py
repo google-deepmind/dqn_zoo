@@ -23,7 +23,7 @@ import dm_env
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import optix
+import optax
 import rlax
 
 from dqn_zoo import parts
@@ -42,7 +42,7 @@ class PrioritizedDqn:
       preprocessor: processors.Processor,
       sample_network_input: jnp.ndarray,
       network: parts.Network,
-      optimizer: optix.InitUpdate,
+      optimizer: optax.GradientTransformation,
       transition_accumulator: replay_lib.TransitionAccumulator,
       replay: replay_lib.PrioritizedTransitionReplay,
       batch_size: int,
@@ -111,7 +111,7 @@ class PrioritizedDqn:
           loss_fn, has_aux=True)(online_params, target_params, transitions,
                                  weights, update_key)
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
-      new_online_params = optix.apply_updates(online_params, updates)
+      new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params, td_errors
 
     self._update = jax.jit(update)

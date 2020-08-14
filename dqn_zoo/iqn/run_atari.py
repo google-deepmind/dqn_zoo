@@ -33,7 +33,7 @@ import haiku as hk
 import jax
 from jax.config import config
 import numpy as np
-from jax.experimental import optix
+import optax
 
 from dqn_zoo import atari_data
 from dqn_zoo import gym_atari
@@ -169,7 +169,7 @@ def main(argv):
   replay = replay_lib.TransitionReplay(FLAGS.replay_capacity, replay_structure,
                                        random_state, encoder, decoder)
 
-  optimizer = optix.adam(
+  optimizer = optax.adam(
       learning_rate=FLAGS.learning_rate, eps=FLAGS.optimizer_epsilon)
 
   train_rng_key, eval_rng_key = jax.random.split(rng_key)
