@@ -8,10 +8,10 @@ It aims to be research-friendly, self-contained and readable. Each agent is
 implemented using [JAX](http://github.com/google/jax),
 [Haiku](http://github.com/deepmind/haiku) and
 [RLax](http://github.com/deepmind/rlax), and is a best-effort replication of the
-corresponding paper implementation. Each agent has been verified to reproduce
-results on the standard set of 57 Atari games, on average.
+corresponding paper implementation. Each agent reproduces results on the
+standard set of 57 Atari games, on average.
 
-<!-- mdformat off (for readability) -->
+<!-- mdformat off(for readability) -->
 
 | Directory     | Paper                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------- |
@@ -25,6 +25,10 @@ results on the standard set of 57 Atari games, on average.
 
 <!-- mdformat on -->
 
+Plot of median human-normalized score over all 57 Atari games for each agent:
+
+![Plot summary](plot_atari_summary.svg)
+
 ## Quick start
 
 NOTE: Only Python 3.6 and above and Linux is supported.
@@ -32,6 +36,8 @@ NOTE: Only Python 3.6 and above and Linux is supported.
 Follow these steps to quickly clone the DQN Zoo repository, install all required
 dependencies and start running DQN. Prerequisites for these steps are a NVIDIA
 GPU with recent CUDA drivers.
+
+<!-- mdlint off() -->
 
 1.  Install [Docker](http://docs.docker.com/) version 19.03 or later (for the
     `--gpus` flag).
@@ -44,6 +50,8 @@ GPU with recent CUDA drivers.
     1.  Clone the DQN Zoo repository.
     1.  Build a Docker image with all necessary dependencies and run unit tests.
     1.  Start a short run of DQN on Pong in a GPU-accelerated container.
+
+<!-- mdlint on -->
 
 NOTE: `run.sh` and `Dockerfile` together provide an example of the dependencies
 and commands needed to run a DQN Zoo agent. It is perfectly fine to not use
@@ -118,6 +126,27 @@ Some implementation details:
     relevant flag values in terms of environment frames, instead of a more
     confusing mix of environment frames and learning steps.
 
+## Learning curves
+
+<!-- mdlint off() -->
+
+Learning curve data is included in [`results.tar.gz`](results.tar.gz). The
+archive contains a CSV file for each agent, with statistics logged during
+training runs over the standard set of 57 Atari games, 5 seeds each. Note
+[Gym](http://github.com/openai/gym) was used instead of
+[Xitari](http://github.com/deepmind/xitari).
+
+<!-- mdlint on -->
+
+Plots show the average score at periodic evaluation phases during training. Each
+episode during evaluation starts with up to 30 random no-op actions and lasts a
+maximum of 30 minutes. To make the plots more readable, scores have been
+smoothed using moving average with window size 10.
+
+Plot of average score on each individual Atari game for each agent:
+
+![Plot individual](plot_atari_individual.svg)
+
 ## FAQ
 
 ### Q: Do these agents replicate results from their respective papers?
@@ -177,11 +206,11 @@ users can fork and generalize in the directions they specifically care about.
 Most DeepMind papers with experiments on Atari published results on
 [Xitari](http://github.com/deepmind/xitari), a fork of the
 [Arcade Learning Environment (ALE)](http://github.com/mgbellemare/Arcade-Learning-Environment).
-The agents in DQN Zoo were also internally verified on Xitari. However since
-[Gym](http://github.com/openai/gym) and the ALE are more widely used we have
-chosen to open source DQN Zoo using Gym. This does introduce another source of
-differences, though the settings for the Gym Atari environments have been chosen
-so they behave as similar as possible to Xitari.
+The learning performance of agents in DQN Zoo were also verified on Xitari.
+However since [Gym](http://github.com/openai/gym) and the ALE are more widely
+used we have chosen to open source DQN Zoo using Gym. This does introduce
+another source of differences, though the settings for the Gym Atari
+environments have been chosen so they are as similar as possible to Xitari.
 
 ### Contributing
 
