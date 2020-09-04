@@ -1,7 +1,7 @@
 # DQN Zoo
 
 _DQN Zoo_ is a collection of reference implementations of reinforcement learning
-(RL) agents developed at DeepMind based on the
+agents developed at DeepMind based on the
 [Deep Q-Network (DQN)](http://www.nature.com/articles/nature14236) agent.
 
 It aims to be research-friendly, self-contained and readable. Each agent is
@@ -46,7 +46,7 @@ GPU with recent CUDA drivers.
     [sudoless docker](http://docs.docker.com/engine/install/linux-postinstall/).
 1.  Verify the previous steps were successful by running: \
     `docker run --gpus all --rm nvidia/cuda:10.1-base nvidia-smi`
-1.  Download and run the script [`run.sh`](run.sh). This will:
+1.  Download and run the script [`run.sh`](run.sh). This script will:
     1.  Clone the DQN Zoo repository.
     1.  Build a Docker image with all necessary dependencies and run unit tests.
     1.  Start a short run of DQN on Pong in a GPU-accelerated container.
@@ -119,9 +119,9 @@ Some implementation details:
     checkpointing library appropriate for the file system they are using. This
     would allow resuming an interrupted training run.
 *   The preprocessing and action repeat logic lives inside each agent. Doing
-    this instead of the common approach of environment wrappers allows the run
-    loop to see the "true" timesteps. This makes things like recording
-    performance statistics and videos easier since the unmodified reward and
+    this instead of taking the common approach of environment wrappers allows
+    the run loop to see the "true" timesteps. This makes things like recording
+    performance statistics and videos easier since the unmodified rewards and
     observations are readily available. It also allows us to express all
     relevant flag values in terms of environment frames, instead of a more
     confusing mix of environment frames and learning steps.
@@ -141,7 +141,7 @@ training runs over the standard set of 57 Atari games, 5 seeds each. Note
 Plots show the average score at periodic evaluation phases during training. Each
 episode during evaluation starts with up to 30 random no-op actions and lasts a
 maximum of 30 minutes. To make the plots more readable, scores have been
-smoothed using moving average with window size 10.
+smoothed using a moving average with window size 10.
 
 Plot of average score on each individual Atari game for each agent:
 
@@ -210,7 +210,7 @@ The learning performance of agents in DQN Zoo were also verified on Xitari.
 However since [Gym](http://github.com/openai/gym) and the ALE are more widely
 used we have chosen to open source DQN Zoo using Gym. This does introduce
 another source of differences, though the settings for the Gym Atari
-environments have been chosen so they are as similar as possible to Xitari.
+environments have been chosen so they behave as similar as possible to Xitari.
 
 ### Contributing
 
