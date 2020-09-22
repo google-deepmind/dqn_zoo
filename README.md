@@ -159,8 +159,8 @@ However there are potential sources of differences at the level of an individual
 game. These include:
 
 *   Differences between [Gym](http://github.com/openai/gym) +
-    [ALE](http://github.com/mgbellemare/Arcade-Learning-Environment) and
-    [Xitari](http://github.com/deepmind/xitari).
+    [Arcade Learning Environment (ALE)](http://github.com/mgbellemare/Arcade-Learning-Environment)
+    and [Xitari](http://github.com/deepmind/xitari).
 *   Changes in underlying libraries such as the exact image resizing algorithm
     used in the observation preprocessing.
 *   Atari ROM version.
