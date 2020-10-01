@@ -18,6 +18,7 @@
 
 import collections
 import csv
+import os
 import timeit
 from typing import Any, Iterable, Mapping, Optional, Text, Tuple, Union
 
@@ -318,6 +319,9 @@ class CsvWriter:
     """
     # Open a file in 'append' mode, so we can continue logging safely to the
     # same file after e.g. restarting from a checkpoint.
+    dirname = os.path.dirname(fname)
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
     self._file = open(fname, 'a')
     self._writer = None
     self._header_written = False

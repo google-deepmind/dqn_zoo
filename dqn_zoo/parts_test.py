@@ -167,6 +167,8 @@ class CsvWriterTest(absltest.TestCase):
     self.fake_file = mock.Mock()
     self.mock_open.return_value = self.fake_file
 
+    mock.patch('os.path.exists').start().return_value = True
+
   def tearDown(self):
     super().tearDown()
     mock.patch.stopall()
