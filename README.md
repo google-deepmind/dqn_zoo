@@ -53,10 +53,12 @@ GPU with recent CUDA drivers.
 
 <!-- mdlint on -->
 
-NOTE: `run.sh` and `Dockerfile` together provide an example of the dependencies
-and commands needed to run a DQN Zoo agent. It is perfectly fine to not use
-Docker and it is not a hard requirement to run on the GPU. Agents can be run on
-the CPU by specifying the flag `--jax_platform_name=cpu`.
+NOTE: `run.sh`, `Dockerfile` and `requirements.txt` together provide a
+self-contained example of the dependencies and commands needed to run an agent
+in DQN Zoo. Using Docker is not a requirement and if `Dockerfile` is not used
+then the list of dependencies to install may have to be adapted depending on
+your environment. Also it is not a hard requirement to run on the GPU. Agents
+can be run on the CPU by specifying the flag `--jax_platform_name=cpu`.
 
 ## Goals
 
@@ -149,7 +151,7 @@ for agent in "${AGENTS[@]}"; do
       python -m "dqn_zoo.${agent}.run_atari" \
           --environment_name="${game}" \
           --seed="${seed}" \
-          --results="/tmp/dqn_zoo/${agent}/${game}/${seed}/results.csv"
+          --results_csv_path="/tmp/dqn_zoo/${agent}/${game}/${seed}/results.csv"
     done
   done
 done
