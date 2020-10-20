@@ -165,7 +165,7 @@ class CsvWriterTest(absltest.TestCase):
     super().setUp()
     self.mock_open = mock.patch.object(__builtins__, 'open').start()
     self.fake_file = mock.Mock()
-    self.mock_open.return_value = self.fake_file
+    self.mock_open.return_value.__enter__.return_value = self.fake_file
 
     mock.patch('os.path.exists').start().return_value = True
 
@@ -173,39 +173,24 @@ class CsvWriterTest(absltest.TestCase):
     super().tearDown()
     mock.patch.stopall()
 
-  def test_file_open(self):
-    """Tests that a file with correct name is opened."""
-    _ = parts.CsvWriter('testabc.csv')
-    self.mock_open.assert_called_once_with('testabc.csv', mock.ANY)
-
   def test_file_writes(self):
-    """Tests that file is written correctly."""
+    """Tests that file is opened and written correctly."""
     writer = parts.CsvWriter('test.csv')
+    self.mock_open.assert_not_called()
     self.fake_file.write.assert_not_called()
     writer.write(collections.OrderedDict([('a', 1), ('b', 2)]))
+    self.mock_open.assert_called_once_with('test.csv', mock.ANY)
     self.assertSequenceEqual(
         [mock.call('a,b\r\n'), mock.call('1,2\r\n')],
         self.fake_file.write.call_args_list)
     writer.write(collections.OrderedDict([('a', 3), ('b', 4)]))
     self.assertSequenceEqual(
+        [mock.call('test.csv', mock.ANY),
+         mock.call('test.csv', mock.ANY)], self.mock_open.call_args_list)
+    self.assertSequenceEqual(
         [mock.call('a,b\r\n'),
          mock.call('1,2\r\n'),
          mock.call('3,4\r\n')], self.fake_file.write.call_args_list)
-
-  def test_file_close(self):
-    """Tests that file is closed on writer.close()."""
-    writer = parts.CsvWriter('test.csv')
-    writer.write(collections.OrderedDict([('a', 1), ('b', 2)]))
-    self.fake_file.close.assert_not_called()
-    writer.close()
-    self.fake_file.close.assert_called_once_with()
-
-  def test_file_close_on_delete(self):
-    """Tests that file is closed if writer gets deleted."""
-    writer = parts.CsvWriter('test.csv')
-    writer.write(collections.OrderedDict([('a', 1), ('b', 2)]))
-    del writer
-    self.fake_file.close.assert_called_once_with()
 
   def test_deserialize_after_header(self):
     """Tests that no header is written unnecessarily after deserialization."""
@@ -260,6 +245,16 @@ class CsvWriterTest(absltest.TestCase):
         mock.call('3,1,2\r\n'),
         mock.call('6,4,5\r\n')
     ], self.fake_file.write.call_args_list)
+
+  def test_create_dir(self):
+    """Tests that a csv file dir is created if it doesn't exist yet."""
+    with mock.patch('os.path.exists') as fake_exists, \
+         mock.patch('os.makedirs') as fake_makedirs:
+      fake_exists.return_value = False
+      dirname = '/some/sub/dir'
+      _ = parts.CsvWriter(dirname + '/test.csv')
+      fake_exists.assert_called_once_with(dirname)
+      fake_makedirs.assert_called_once_with(dirname)
 
 
 if __name__ == '__main__':
