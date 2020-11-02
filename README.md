@@ -235,7 +235,7 @@ used we have chosen to open source DQN Zoo using Gym. This does introduce
 another source of differences, though the settings for the Gym Atari
 environments have been chosen so they behave as similar as possible to Xitari.
 
-### Contributing
+## Contributing
 
 Note we are currently not accepting contributions. See
 [`CONTRIBUTING.md`](CONTRIBUTING.md) for details.
