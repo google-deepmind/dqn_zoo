@@ -85,7 +85,7 @@ def main(argv):
                jax.lib.xla_bridge.get_backend().platform)
   random_state = np.random.RandomState(FLAGS.seed)
   rng_key = jax.random.PRNGKey(
-      random_state.randint(-sys.maxsize - 1, sys.maxsize + 1))
+      random_state.randint(-sys.maxsize - 1, sys.maxsize + 1, dtype=np.int64))
 
   if FLAGS.results_csv_path:
     writer = parts.CsvWriter(FLAGS.results_csv_path)
