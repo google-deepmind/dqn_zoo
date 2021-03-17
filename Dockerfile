@@ -16,10 +16,10 @@ RUN pip3 install --upgrade pip==20.1.1 setuptools==47.3.1
 WORKDIR /workspace
 
 # Copy requirements file specifying pinned dependencies.
-COPY ./requirements.txt /workspace/
+COPY ./docker_requirements.txt /workspace/
 
 # Install Python dependencies.
-RUN pip3 install -r requirements.txt
+RUN pip3 install -r docker_requirements.txt
 
 # Copy over source code from build context.
 COPY ./dqn_zoo /workspace/dqn_zoo

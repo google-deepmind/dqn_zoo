@@ -53,7 +53,7 @@ GPU with recent CUDA drivers.
 
 <!-- mdlint on -->
 
-NOTE: `run.sh`, `Dockerfile` and `requirements.txt` together provide a
+NOTE: `run.sh`, `Dockerfile` and `docker_requirements.txt` together provide a
 self-contained example of the dependencies and commands needed to run an agent
 in DQN Zoo. Using Docker is not a requirement and if `Dockerfile` is not used
 then the list of dependencies to install may have to be adapted depending on

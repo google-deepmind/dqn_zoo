@@ -1,4 +1,5 @@
-# This list of dependencies was generated with `pip freeze`.
+# This list of dependencies was generated with `pip freeze` for Dockerfile. If
+# using in a different context, best to ignore the transitive dependencies.
 
 # DeepMind libraries.
 dm-env==1.2
