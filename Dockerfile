@@ -21,6 +21,9 @@ COPY ./docker_requirements.txt /workspace/
 # Install Python dependencies.
 RUN pip3 install -r docker_requirements.txt
 
+# List Python dependencies.
+RUN pip3 freeze
+
 # Copy over source code from build context.
 COPY ./dqn_zoo /workspace/dqn_zoo
 

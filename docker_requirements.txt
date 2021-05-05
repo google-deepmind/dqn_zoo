@@ -2,6 +2,7 @@
 # using in a different context, best to ignore the transitive dependencies.
 
 # DeepMind libraries.
+chex==0.0.2
 dm-env==1.2
 dm-haiku @ git+git://github.com/deepmind/dm-haiku.git@db991d56563221d5a06be5e7228155e53d01aba9
 dm-tree==0.1.5
@@ -27,6 +28,7 @@ scipy==1.2.1
 asn1crypto==0.24.0
 cloudpickle==1.2.2
 cryptography==2.1.4
+dataclasses==0.7
 future==0.18.2
 idna==2.6
 keyring==10.6.0
@@ -39,3 +41,4 @@ pygobject==3.26.1
 pyxdg==0.25
 SecretStorage==2.3.1
 six==1.15.0
+toolz==0.11.1
