@@ -159,7 +159,8 @@ done
 
 Each agent CSV file in `results.tar.gz` is then a concatenation of all
 associated `results.csv` files, with additional `environment_name` and `seed`
-fields.
+fields. Note the learning curve data is missing `state_value` since logging for
+this quantity was added after the data was generated.
 
 Plots show the average score at periodic evaluation phases during training. Each
 episode during evaluation starts with up to 30 random no-op actions and lasts a

@@ -48,6 +48,10 @@ class DummyAgent(parts.Agent):
   def set_state(self, state):
     del state
 
+  @property
+  def statistics(self):
+    return {}
+
 
 class DummyEnvironment(dm_env.Environment):
   """Environment that ignores actions and generates dummy timesteps.

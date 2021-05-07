@@ -17,6 +17,7 @@
 # pylint: disable=g-bad-import-order
 
 import collections
+import math
 from unittest import mock
 
 from dqn_zoo import parts
@@ -83,7 +84,7 @@ class RunLoopTest(absltest.TestCase):
     loop_outputs = parts.run_loop(
         agent, environment, max_steps_per_episode=100, yield_before_reset=True)
 
-    for timestep_t, unused_a_t in loop_outputs:
+    for unused_env, timestep_t, unused_agent, unused_a_t in loop_outputs:
       tape.append((episode_index, t, timestep_t is None))
 
       if timestep_t is None:
@@ -255,6 +256,60 @@ class CsvWriterTest(absltest.TestCase):
       _ = parts.CsvWriter(dirname + '/test.csv')
       fake_exists.assert_called_once_with(dirname)
       fake_makedirs.assert_called_once_with(dirname)
+
+
+class AgentWithStatistics(parts.Agent):
+
+  def __init__(self, statistics):
+    self._statistics = statistics
+
+  def step(self, timestep):
+    return parts.Action(0)
+
+  def reset(self) -> None:
+    pass
+
+  def get_state(self):
+    return {}
+
+  def set_state(self, state):
+    pass
+
+  @property
+  def statistics(self):
+    return self._statistics
+
+  @statistics.setter
+  def statistics(self, value):
+    self._statistics = value
+
+
+class UnbiasedExponentialWeightedAverageAgentTrackerTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    sample_statistics = dict(a=math.nan, b=0)
+    self.agent = AgentWithStatistics(sample_statistics)
+    self.tracker = parts.UnbiasedExponentialWeightedAverageAgentTracker(
+        step_size=0.1, initial_agent=self.agent)
+
+  def test_average_equals_input_on_first_step(self):
+    statistics = {'a': 1, 'b': 2}
+    self.agent.statistics = statistics
+    self.tracker.step(None, None, self.agent, None)
+    self.assertEqual(statistics, self.tracker.get())
+
+  def test_trace_strictly_increases_from_0_to_1(self):
+    self.assertEqual(0, self.tracker.trace)
+
+    for i in range(100):
+      prev_trace = self.tracker.trace
+      self.agent.statistics = {'a': i, 'b': 2 * i}
+      self.tracker.step(None, None, self.agent, None)
+      self.assertGreater(self.tracker.trace, prev_trace)
+      self.assertLess(self.tracker.trace, 1)
+
+    self.assertAlmostEqual(1, self.tracker.trace, places=4)
 
 
 if __name__ == '__main__':

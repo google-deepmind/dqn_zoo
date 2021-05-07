@@ -217,13 +217,15 @@ def main(argv):
     train_seq = parts.run_loop(train_agent, env, FLAGS.max_frames_per_episode)
     num_train_frames = 0 if state.iteration == 0 else FLAGS.num_train_frames
     train_seq_truncated = itertools.islice(train_seq, num_train_frames)
-    train_stats = parts.generate_statistics(train_seq_truncated)
+    train_trackers = parts.make_default_trackers(train_agent)
+    train_stats = parts.generate_statistics(train_trackers, train_seq_truncated)
 
     logging.info('Evaluation iteration %d.', state.iteration)
     eval_agent.network_params = train_agent.online_params
     eval_seq = parts.run_loop(eval_agent, env, FLAGS.max_frames_per_episode)
     eval_seq_truncated = itertools.islice(eval_seq, FLAGS.num_eval_frames)
-    eval_stats = parts.generate_statistics(eval_seq_truncated)
+    eval_trackers = parts.make_default_trackers(eval_agent)
+    eval_stats = parts.generate_statistics(eval_trackers, eval_seq_truncated)
 
     # Logging and checkpointing.
     human_normalized_score = atari_data.get_human_normalized_score(
@@ -239,6 +241,7 @@ def main(argv):
         ('eval_frame_rate', eval_stats['step_rate'], '%4.0f'),
         ('train_frame_rate', train_stats['step_rate'], '%4.0f'),
         ('train_exploration_epsilon', train_agent.exploration_epsilon, '%.3f'),
+        ('train_state_value', train_stats['state_value'], '%.3f'),
         ('normalized_return', human_normalized_score, '%.3f'),
         ('capped_normalized_return', capped_human_normalized_score, '%.3f'),
         ('human_gap', 1. - capped_human_normalized_score, '%.3f'),

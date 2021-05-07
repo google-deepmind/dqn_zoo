@@ -60,13 +60,19 @@ class Agent(abc.ABC):
   def set_state(self, state: Mapping[Text, Any]) -> None:
     """Sets agent state from a (potentially de-serialized) dictionary."""
 
+  @property
+  @abc.abstractmethod
+  def statistics(self) -> Mapping[Text, float]:
+    """Returns current agent statistics as a dictionary."""
+
 
 def run_loop(
     agent: Agent,
     environment: dm_env.Environment,
     max_steps_per_episode: int = 0,
     yield_before_reset: bool = False,
-) -> Iterable[Tuple[Optional[dm_env.TimeStep], Optional[Action]]]:
+) -> Iterable[Tuple[dm_env.Environment, Optional[dm_env.TimeStep], Agent,
+                    Optional[Action]]]:
   """Repeatedly alternates step calls on environment and agent.
 
   At time `t`, `t + 1` environment timesteps and `t + 1` agent steps have been
@@ -77,15 +83,17 @@ def run_loop(
     environment: Environment to run, has methods `step(action)` and `reset()`.
     max_steps_per_episode: If positive, when time t reaches this value within an
       episode, the episode is truncated.
-    yield_before_reset: Whether to additionally yield `(None, None)` before the
-      agent and environment is reset.
+    yield_before_reset: Whether to additionally yield `(environment, None,
+      agent, None)` before the agent and environment is reset at the start of
+      each episode.
 
   Yields:
-    Tuple `(timestep_t, a_t)` where `a_t = agent.step(timestep_t)`.
+    Tuple `(environment, timestep_t, agent, a_t)` where
+    `a_t = agent.step(timestep_t)`.
   """
   while True:  # For each episode.
     if yield_before_reset:
-      yield None, None
+      yield environment, None, agent, None,
 
     t = 0
     agent.reset()
@@ -93,7 +101,7 @@ def run_loop(
 
     while True:  # For each step in the current episode.
       a_t = agent.step(timestep_t)
-      yield timestep_t, a_t
+      yield environment, timestep_t, agent, a_t
 
       # Update t after one environment step and agent step and relabel.
       t += 1
@@ -106,30 +114,28 @@ def run_loop(
 
       if timestep_t.last():
         unused_a_t = agent.step(timestep_t)  # Extra agent step, action ignored.
-        yield timestep_t, None
+        yield environment, timestep_t, agent, None
         break
 
 
 def generate_statistics(
-    timestep_action_sequence: Iterable[Tuple[Optional[dm_env.TimeStep],
+    trackers: Iterable[Any],
+    timestep_action_sequence: Iterable[Tuple[dm_env.Environment,
+                                             Optional[dm_env.TimeStep], Agent,
                                              Optional[Action]]]
 ) -> Mapping[Text, Any]:
   """Generates statistics from a sequence of timestep and actions."""
-  episode_tracker = EpisodeTracker()
-  step_rate_tracker = StepRateTracker()
-  episode_tracker.reset()
-  step_rate_tracker.reset()
+  # Only reset at the start, not between episodes.
+  for tracker in trackers:
+    tracker.reset()
 
-  for timestep_t, unused_a_t in timestep_action_sequence:
-    if timestep_t is None:
-      continue
-    step_rate_tracker.step(timestep_t)
-    episode_tracker.step(timestep_t)
+  for environment, timestep_t, agent, a_t in timestep_action_sequence:
+    for tracker in trackers:
+      tracker.step(environment, timestep_t, agent, a_t)
 
-  episode_stats = episode_tracker.get()
-  step_rate_stats = step_rate_tracker.get()
-  merged_stats = {**episode_stats, **step_rate_stats}
-  return merged_stats
+  # Merge all statistics dictionaries into one.
+  statistics_dicts = (tracker.get() for tracker in trackers)
+  return dict(collections.ChainMap(*statistics_dicts))
 
 
 class EpisodeTracker:
@@ -142,21 +148,29 @@ class EpisodeTracker:
     self._current_episode_rewards = None
     self._current_episode_step = None
 
-  def step(self, timestep: dm_env.TimeStep) -> None:
+  def step(
+      self,
+      environment: Optional[dm_env.Environment],
+      timestep_t: dm_env.TimeStep,
+      agent: Optional[Agent],
+      a_t: Optional[Action],
+  ) -> None:
     """Accumulates statistics from timestep."""
-    if timestep.first():
+    del (environment, agent, a_t)
+
+    if timestep_t.first():
       if self._current_episode_rewards:
         raise ValueError('Current episode reward list should be empty.')
       if self._current_episode_step != 0:
         raise ValueError('Current episode step should be zero.')
     else:
       # First reward is invalid, all other rewards are appended.
-      self._current_episode_rewards.append(timestep.reward)
+      self._current_episode_rewards.append(timestep_t.reward)
 
     self._num_steps_since_reset += 1
     self._current_episode_step += 1
 
-    if timestep.last():
+    if timestep_t.last():
       self._episode_returns.append(sum(self._current_episode_rewards))
       self._current_episode_rewards = []
       self._num_steps_over_episodes += self._current_episode_step
@@ -211,8 +225,14 @@ class StepRateTracker:
     self._num_steps_since_reset = None
     self._start = None
 
-  def step(self, timestep: dm_env.TimeStep) -> None:
-    del timestep
+  def step(
+      self,
+      environment: Optional[dm_env.Environment],
+      timestep_t: Optional[dm_env.TimeStep],
+      agent: Optional[Agent],
+      a_t: Optional[Action],
+  ) -> None:
+    del (environment, timestep_t, agent, a_t)
     self._num_steps_since_reset += 1
 
   def reset(self) -> None:
@@ -230,6 +250,58 @@ class StepRateTracker:
         'num_steps': self._num_steps_since_reset,
         'duration': duration,
     }
+
+
+class UnbiasedExponentialWeightedAverageAgentTracker:
+  """'Unbiased Constant-Step-Size Trick' from the Sutton and Barto RL book."""
+
+  def __init__(self, step_size: float, initial_agent: Agent):
+    self._initial_statistics = dict(initial_agent.statistics)
+    self._step_size = step_size
+    self.trace = 0.
+    self._statistics = dict(self._initial_statistics)
+
+  def step(
+      self,
+      environment: Optional[dm_env.Environment],
+      timestep_t: Optional[dm_env.TimeStep],
+      agent: Agent,
+      a_t: Optional[Action],
+  ) -> None:
+    """Accumulates agent statistics."""
+    del (environment, timestep_t, a_t)
+
+    self.trace = (1 - self._step_size) * self.trace + self._step_size
+    final_step_size = self._step_size / self.trace
+    assert 0 <= final_step_size <= 1
+
+    if final_step_size == 1:
+      # Since the self._initial_statistics is likely to be NaN and
+      # 0 * NaN == NaN just replace self._statistics on the first step.
+      self._statistics = dict(agent.statistics)
+    else:
+      self._statistics = jax.tree_multimap(
+          lambda s, x: (1 - final_step_size) * s + final_step_size * x,
+          self._statistics, agent.statistics)
+
+  def reset(self) -> None:
+    """Resets statistics and internal state."""
+    self.trace = 0.
+    # get() may be called before step() so ensure statistics are initialized.
+    self._statistics = dict(self._initial_statistics)
+
+  def get(self) -> Mapping[Text, float]:
+    """Returns current accumulated statistics."""
+    return self._statistics
+
+
+def make_default_trackers(initial_agent: Agent):
+  return [
+      EpisodeTracker(),
+      StepRateTracker(),
+      UnbiasedExponentialWeightedAverageAgentTracker(
+          step_size=1e-3, initial_agent=initial_agent),
+  ]
 
 
 class EpsilonGreedyActor(Agent):
@@ -293,6 +365,10 @@ class EpsilonGreedyActor(Agent):
     """Sets agent state from a (potentially de-serialized) dictionary."""
     self._rng_key = state['rng_key']
     self.network_params = state['network_params']
+
+  @property
+  def statistics(self) -> Mapping[Text, float]:
+    return {}
 
 
 class LinearSchedule:
