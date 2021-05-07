@@ -35,7 +35,7 @@ _batch_categorical_double_q_learning = jax.vmap(
     rlax.categorical_double_q_learning, in_axes=(None, 0, 0, 0, 0, None, 0, 0))
 
 
-class Rainbow:
+class Rainbow(parts.Agent):
   """Rainbow agent."""
 
   def __init__(

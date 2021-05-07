@@ -34,7 +34,7 @@ _batch_categorical_q_learning = jax.vmap(
     rlax.categorical_q_learning, in_axes=(None, 0, 0, 0, 0, None, 0))
 
 
-class C51:
+class C51(parts.Agent):
   """C51 agent."""
 
   def __init__(

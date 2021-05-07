@@ -20,10 +20,12 @@ from absl import flags
 import dm_env
 from dm_env import specs
 
+from dqn_zoo import parts
+
 FLAGS = flags.FLAGS
 
 
-class DummyAgent:
+class DummyAgent(parts.Agent):
   """Agent that returns a dummy action.
 
   Records whether it took a step or reset on a tape.
@@ -39,6 +41,12 @@ class DummyAgent:
     del timestep
     self._tape.append('Agent step')
     return 0
+
+  def get_state(self):
+    return {}
+
+  def set_state(self, state):
+    del state
 
 
 class DummyEnvironment(dm_env.Environment):

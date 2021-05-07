@@ -33,7 +33,7 @@ from dqn_zoo import replay as replay_lib
 _batch_double_q_learning = jax.vmap(rlax.double_q_learning)
 
 
-class DoubleDqn:
+class DoubleDqn(parts.Agent):
   """Double DQN (tuned) agent."""
 
   def __init__(

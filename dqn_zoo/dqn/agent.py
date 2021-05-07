@@ -33,7 +33,7 @@ from dqn_zoo import replay as replay_lib
 _batch_q_learning = jax.vmap(rlax.q_learning)
 
 
-class Dqn:
+class Dqn(parts.Agent):
   """Deep Q-Network agent."""
 
   def __init__(

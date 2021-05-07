@@ -34,7 +34,7 @@ from dqn_zoo import replay as replay_lib
 _batch_double_q_learning = jax.vmap(rlax.double_q_learning)
 
 
-class PrioritizedDqn:
+class PrioritizedDqn(parts.Agent):
   """Prioritized Experience Replay (proportional variant) DQN agent."""
 
   def __init__(

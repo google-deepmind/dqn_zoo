@@ -34,7 +34,7 @@ _batch_quantile_q_learning = jax.vmap(
     rlax.quantile_q_learning, in_axes=(0, None, 0, 0, 0, 0, 0, None))
 
 
-class QrDqn:
+class QrDqn(parts.Agent):
   """Quantile Regression DQN agent."""
 
   def __init__(

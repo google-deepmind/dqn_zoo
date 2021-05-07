@@ -16,6 +16,7 @@
 
 # pylint: disable=g-bad-import-order
 
+import abc
 import collections
 import csv
 import os
@@ -37,8 +38,31 @@ NetworkParams = networks.Params
 PRNGKey = jnp.ndarray  # A size 2 array.
 
 
+class Agent(abc.ABC):
+  """Agent interface."""
+
+  @abc.abstractmethod
+  def step(self, timestep: dm_env.TimeStep) -> Action:
+    """Selects action given timestep and potentially learns."""
+
+  @abc.abstractmethod
+  def reset(self) -> None:
+    """Resets the agent's episodic state such as frame stack and action repeat.
+
+    This method should be called at the beginning of every episode.
+    """
+
+  @abc.abstractmethod
+  def get_state(self) -> Mapping[Text, Any]:
+    """Retrieves agent state as a dictionary (e.g. for serialization)."""
+
+  @abc.abstractmethod
+  def set_state(self, state: Mapping[Text, Any]) -> None:
+    """Sets agent state from a (potentially de-serialized) dictionary."""
+
+
 def run_loop(
-    agent,
+    agent: Agent,
     environment: dm_env.Environment,
     max_steps_per_episode: int = 0,
     yield_before_reset: bool = False,
@@ -208,7 +232,7 @@ class StepRateTracker:
     }
 
 
-class EpsilonGreedyActor:
+class EpsilonGreedyActor(Agent):
   """Agent that acts with a given set of Q-network parameters and epsilon.
 
   Network parameters are set on the actor. The actor can be serialized,

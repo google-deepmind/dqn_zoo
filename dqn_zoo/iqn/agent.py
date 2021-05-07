@@ -45,7 +45,7 @@ def _sample_tau(
   return jax.random.uniform(rng_key, shape=shape)
 
 
-class IqnEpsilonGreedyActor:
+class IqnEpsilonGreedyActor(parts.Agent):
   """Agent that acts with a given set of IQN-network parameters and epsilon.
 
   Network parameters are set on the actor. The actor can be checkpointed for
@@ -111,7 +111,7 @@ class IqnEpsilonGreedyActor:
     self.network_params = state['network_params']
 
 
-class Iqn:
+class Iqn(parts.Agent):
   """Implicit Quantile Network agent."""
 
   def __init__(
