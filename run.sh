@@ -34,7 +34,8 @@
 
 set -u -e  # Check for uninitialized variables and exit if any command fails.
 
-WORK_DIR=$(mktemp -d -t dqn_zoo_"$(date +"%Y%m%d_%H%M%S_XXXXXX")")
+WORK_DIR_ROOT=${TMPDIR:-/var/tmp/}
+WORK_DIR=$(mktemp -d "${WORK_DIR_ROOT}dqnzoo_$(date +"%Y%m%d_%H%M%S")_XXXXXX")
 echo "Working directory: $WORK_DIR"
 
 function clean_up() {
