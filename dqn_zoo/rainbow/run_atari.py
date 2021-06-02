@@ -58,7 +58,6 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('environment_name', 'pong', '')
 flags.DEFINE_integer('environment_height', 84, '')
 flags.DEFINE_integer('environment_width', 84, '')
-flags.DEFINE_bool('use_gym', False, '')
 flags.DEFINE_integer('replay_capacity', int(1e6), '')
 flags.DEFINE_bool('compress_state', True, '')
 flags.DEFINE_float('min_replay_capacity_fraction', 0.02, '')
