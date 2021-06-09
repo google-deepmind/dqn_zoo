@@ -186,7 +186,7 @@ class DoubleDqn(parts.Agent):
 
   @property
   def statistics(self) -> Mapping[Text, float]:
-    """returns current agent statistics as a dictionary."""
+    """Returns current agent statistics as a dictionary."""
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
         not isinstance(x, jnp.DeviceArray) for x in self._statistics.values())
