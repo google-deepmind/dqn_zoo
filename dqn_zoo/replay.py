@@ -69,7 +69,7 @@ class TransitionReplay(Generic[ReplayStructure]):
 
   def sample(self, size: int) -> ReplayStructure:
     """Samples batch of items from replay uniformly, with replacement."""
-    indices = self._random_state.choice(self.size, size=size, replace=True)
+    indices = self._random_state.randint(self.size, size=size)
     samples = self.get(indices)
     transposed = zip(*samples)
     stacked = [np.stack(xs, axis=0) for xs in transposed]
