@@ -602,7 +602,7 @@ class NStepTransitionAccumulator:
         raise ValueError('Expected FIRST timestep, got %s.' % str(timestep_t))
       self._timestep_tm1 = timestep_t
       self._a_tm1 = a_t
-      return  # Empty iterator.
+      return  # Empty iterable.
 
     self._transitions.append(
         Transition(
@@ -624,7 +624,7 @@ class NStepTransitionAccumulator:
     else:
       # Wait for n transitions before yielding anything.
       if len(self._transitions) < self._transitions.maxlen:
-        return  # Empty iterator.
+        return  # Empty iterable.
 
       assert len(self._transitions) == self._transitions.maxlen
 
