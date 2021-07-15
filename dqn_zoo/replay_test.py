@@ -20,6 +20,7 @@ import collections
 import itertools
 from typing import Any, Mapping, Sequence, Text
 
+import chex
 import dm_env
 import numpy as np
 
@@ -60,7 +61,7 @@ class TransitionReplayTest(absltest.TestCase):
   def test_sample(self):
     num_samples = 2
     samples = self.replay.sample(num_samples)
-    self.assertEqual((num_samples,), samples.a.shape)
+    chex.assert_shape(samples.a, (num_samples,))
 
 
 class NStepTransitionAccumulatorTest(absltest.TestCase):
@@ -441,7 +442,7 @@ class PrioritizedTransitionReplayTest(absltest.TestCase):
     add(replay, [1, 2, 3])
     sample_size = 2
     samples, unused_indices, unused_weights = replay.sample(sample_size)
-    self.assertEqual((sample_size,), samples.value.shape)
+    chex.assert_shape(samples.value, (sample_size,))
 
   def test_get_state_and_set_state(self):
     orig_replay = make_replay(priority_exponent=1.)

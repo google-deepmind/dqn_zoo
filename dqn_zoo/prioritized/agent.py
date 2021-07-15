@@ -19,6 +19,7 @@
 from typing import Any, Callable, Mapping, Text
 
 from absl import logging
+import chex
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -99,7 +100,7 @@ class PrioritizedDqn(parts.Agent):
       td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
                                      grad_error_bound)
       losses = rlax.l2_loss(td_errors)
-      assert losses.shape == (self._batch_size,) == weights.shape
+      chex.assert_shape((losses, weights), (self._batch_size,))
       # This is not the same as using a huber loss and multiplying by weights.
       loss = jnp.mean(losses * weights)
       return loss, td_errors
@@ -184,7 +185,7 @@ class PrioritizedDqn(parts.Agent):
             transitions,
             weights,
         ))
-    assert weights.shape == td_errors.shape
+    chex.assert_equal_shape((weights, td_errors))
     priorities = jnp.abs(td_errors)
     priorities = jax.device_get(priorities)
     max_priority = priorities.max()

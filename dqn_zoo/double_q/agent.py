@@ -19,6 +19,7 @@
 from typing import Any, Callable, Mapping, Text
 
 from absl import logging
+import chex
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -98,7 +99,7 @@ class DoubleDqn(parts.Agent):
       td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
                                      grad_error_bound)
       losses = rlax.l2_loss(td_errors)
-      assert losses.shape == (self._batch_size,)
+      chex.assert_shape(losses, (self._batch_size,))
       loss = jnp.mean(losses)
       return loss
 

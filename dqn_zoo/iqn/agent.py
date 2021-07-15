@@ -19,6 +19,7 @@
 from typing import Any, Callable, Mapping, Text, Tuple
 
 from absl import logging
+import chex
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -193,7 +194,7 @@ class Iqn(parts.Agent):
           dist_q_target_t,
           huber_param,
       )
-      assert losses.shape == (self._batch_size,)
+      chex.assert_shape(losses, (self._batch_size,))
       loss = jnp.mean(losses)
       return loss
 

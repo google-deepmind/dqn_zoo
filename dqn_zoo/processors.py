@@ -32,6 +32,7 @@ Conventions:
 import collections
 from typing import Any, Callable, List, Iterable, Optional, Sequence, Text, Tuple
 
+import chex
 import dm_env
 from dm_env import specs
 import numpy as np
@@ -352,8 +353,7 @@ def aggregate_discounts(discounts: Sequence[Optional[float]],
 
 def rgb2y(array: np.ndarray) -> np.ndarray:
   """Converts RGB image array into grayscale."""
-  if array.ndim != 3:
-    raise ValueError('Input array should be 3D, got %s.' % array.ndim)
+  chex.assert_rank(array, 3)
   output = np.tensordot(array, [0.299, 0.587, 1 - (0.299 + 0.587)], (-1, 0))
   return output.astype(np.uint8)
 

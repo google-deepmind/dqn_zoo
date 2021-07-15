@@ -19,6 +19,7 @@
 import typing
 from typing import Any, Callable, Tuple, Union
 
+import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -222,8 +223,7 @@ def rainbow_atari_network(
 ) -> NetworkFn:
   """Rainbow network, expects `uint8` input."""
 
-  if support.ndim != 1:
-    raise ValueError('support should be 1D.')
+  chex.assert_rank(support, 1)
   num_atoms = len(support)
   support = support[None, None, :]
 
@@ -290,8 +290,7 @@ def iqn_atari_network(num_actions: int, latent_dim: int) -> NetworkFn:
 def qr_atari_network(num_actions: int, quantiles: jnp.ndarray) -> NetworkFn:
   """QR-DQN network, expects `uint8` input."""
 
-  if quantiles.ndim != 1:
-    raise ValueError('quantiles has to be 1D.')
+  chex.assert_rank(quantiles, 1)
   num_quantiles = len(quantiles)
 
   def net_fn(inputs):
@@ -312,8 +311,7 @@ def qr_atari_network(num_actions: int, quantiles: jnp.ndarray) -> NetworkFn:
 def c51_atari_network(num_actions: int, support: jnp.ndarray) -> NetworkFn:
   """C51 network, expects `uint8` input."""
 
-  if support.ndim != 1:
-    raise ValueError('support has to be 1D.')
+  chex.assert_rank(support, 1)
   num_atoms = len(support)
 
   def net_fn(inputs):

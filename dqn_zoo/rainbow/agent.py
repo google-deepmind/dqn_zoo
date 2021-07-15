@@ -19,6 +19,7 @@
 from typing import Any, Mapping, Text
 
 from absl import logging
+import chex
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -98,7 +99,7 @@ class Rainbow(parts.Agent):
           q_t,
       )
       loss = jnp.mean(losses * weights)
-      assert losses.shape == (self._batch_size,) == weights.shape
+      chex.assert_shape((losses, weights), (self._batch_size,))
       return loss, losses
 
     def update(rng_key, opt_state, online_params, target_params, transitions,
@@ -179,7 +180,7 @@ class Rainbow(parts.Agent):
         transitions,
         weights,
     )
-    assert weights.shape == losses.shape
+    chex.assert_equal_shape((losses, weights))
     priorities = jnp.clip(jnp.abs(losses), 0., 100.)
     priorities = jax.device_get(priorities)
     max_priority = priorities.max()

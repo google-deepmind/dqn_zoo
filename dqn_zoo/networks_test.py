@@ -16,6 +16,7 @@
 
 # pylint: disable=g-bad-import-order
 
+import chex
 import haiku as hk
 import jax
 from jax.config import config
@@ -39,8 +40,8 @@ class SimpleLayersTest(absltest.TestCase):
     self.assertCountEqual(['linear'], params)
     lin_params = params['linear']
     self.assertCountEqual(['w', 'b'], lin_params)
-    self.assertEqual((3, 4), lin_params['w'].shape)
-    self.assertEqual((4,), lin_params['b'].shape)
+    chex.assert_shape(lin_params['w'], (3, 4))
+    chex.assert_shape(lin_params['b'], (4,))
 
   def test_conv(self):
     layer = hk.transform(networks.conv(4, (3, 3), 2))
@@ -48,8 +49,8 @@ class SimpleLayersTest(absltest.TestCase):
     self.assertCountEqual(['conv2_d'], params)
     conv_params = params['conv2_d']
     self.assertCountEqual(['w', 'b'], conv_params)
-    self.assertEqual((3, 3, 3, 4), conv_params['w'].shape)
-    self.assertEqual((4,), conv_params['b'].shape)
+    chex.assert_shape(conv_params['w'], (3, 3, 3, 4))
+    chex.assert_shape(conv_params['b'], (4,))
 
 
 class LinearWithSharedBiasTest(absltest.TestCase):
@@ -72,9 +73,9 @@ class LinearWithSharedBiasTest(absltest.TestCase):
     def check_params(path, param):
       if path[-1] == 'b':
         self.assertNotEqual(self.output_shape, param.shape)
-        self.assertEqual((1,), param.shape)
+        chex.assert_shape(param, (1,))
       elif path[-1] == 'w':
-        self.assertEqual(self.weights_shape, param.shape)
+        chex.assert_shape(param, self.weights_shape)
       else:
         self.fail('Unexpected parameter %s.' % path)
 
@@ -94,7 +95,7 @@ class LinearWithSharedBiasTest(absltest.TestCase):
     params = tree.map_structure_with_path(replace_params, params)
     output = self.network.apply(params, self.apply_rng_key,
                                 jnp.zeros((1,) + self.input_shape))
-    self.assertEqual((1,) + self.output_shape, output.shape)
+    chex.assert_shape(output, (1,) + self.output_shape)
     np.testing.assert_allclose([bias] * self.output_shape[0], list(output[0]))
 
 

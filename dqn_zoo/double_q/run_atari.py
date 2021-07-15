@@ -37,6 +37,7 @@ import typing
 from absl import app
 from absl import flags
 from absl import logging
+import chex
 import dm_env
 import haiku as hk
 import jax
@@ -133,9 +134,9 @@ def main(argv):
   sample_processed_timestep = typing.cast(dm_env.TimeStep,
                                           sample_processed_timestep)
   sample_network_input = sample_processed_timestep.observation
-  assert sample_network_input.shape == (FLAGS.environment_height,
-                                        FLAGS.environment_width,
-                                        FLAGS.num_stacked_frames)
+  chex.assert_shape(sample_network_input,
+                    (FLAGS.environment_height, FLAGS.environment_width,
+                     FLAGS.num_stacked_frames))
 
   exploration_epsilon_schedule = parts.LinearSchedule(
       begin_t=int(FLAGS.min_replay_capacity_fraction * FLAGS.replay_capacity *

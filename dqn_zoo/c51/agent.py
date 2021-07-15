@@ -19,6 +19,7 @@
 from typing import Any, Callable, Mapping, Text
 
 from absl import logging
+import chex
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -95,7 +96,7 @@ class C51(parts.Agent):
           support,
           logits_target_q_t,
       )
-      assert losses.shape == (self._batch_size,)
+      chex.assert_shape(losses, (self._batch_size,))
       loss = jnp.mean(losses)
       return loss
 

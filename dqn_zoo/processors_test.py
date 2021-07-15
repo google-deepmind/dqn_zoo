@@ -20,6 +20,7 @@ import collections
 import hashlib
 import typing
 
+import chex
 import dm_env
 from dm_env import test_utils
 import numpy as np
@@ -489,7 +490,7 @@ class AtariEnvironmentWrapperTest(parameterized.TestCase):
     timestep = env.reset()
     for _ in range(10):
       assert not timestep.step_type.last()
-      self.assertEqual(timestep.observation.shape, expected_shape)
+      chex.assert_shape(timestep.observation, expected_shape)
       timestep = env.step(0)
 
 
