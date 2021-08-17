@@ -1,6 +1,6 @@
 # DQN Zoo
 
-_DQN Zoo_ is a collection of reference implementations of reinforcement learning
+*DQN Zoo* is a collection of reference implementations of reinforcement learning
 agents developed at DeepMind based on the
 [Deep Q-Network (DQN)](http://www.nature.com/articles/nature14236) agent.
 
