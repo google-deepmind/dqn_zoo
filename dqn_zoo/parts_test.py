@@ -166,7 +166,7 @@ class CsvWriterTest(absltest.TestCase):
     super().setUp()
     self.mock_open = mock.patch.object(__builtins__, 'open').start()
     self.fake_file = mock.Mock()
-    self.mock_open.return_value.__enter__.return_value = self.fake_file
+    self.mock_open.return_value.__enter__.return_value = self.fake_file  # pytype: disable=attribute-error  # py39-upgrade
 
     mock.patch('os.path.exists').start().return_value = True
 
