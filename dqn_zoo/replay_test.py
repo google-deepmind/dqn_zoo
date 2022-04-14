@@ -707,7 +707,9 @@ class NaiveSumTree:
 
   def resize(self, size: int) -> None:
     """Resizes tree, truncating or expanding with zeros as needed."""
-    self.values.resize(size)
+    # Usually there shouldn't be references to self._values, but to prevent
+    # certain Coverage test errors, we pass refcheck=False.
+    self._values.resize(size, refcheck=False)
 
   def get(self, indices: Sequence[int]) -> Sequence[float]:
     """Gets values corresponding to given indices."""
