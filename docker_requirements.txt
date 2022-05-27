@@ -4,10 +4,10 @@
 # DeepMind libraries.
 chex==0.0.2
 dm-env==1.2
-dm-haiku @ git+git://github.com/deepmind/dm-haiku.git@db991d56563221d5a06be5e7228155e53d01aba9
+dm-haiku @ git+https://github.com/deepmind/dm-haiku.git@db991d56563221d5a06be5e7228155e53d01aba9
 dm-tree==0.1.5
 optax==0.0.1
-rlax @ git+git://github.com/deepmind/rlax.git@870cba1ea8ad36725f4f3a790846298657b6fd4b
+rlax @ git+https://github.com/deepmind/rlax.git@870cba1ea8ad36725f4f3a790846298657b6fd4b
 
 # JAX libraries with GPU support.
 jax==0.1.72
