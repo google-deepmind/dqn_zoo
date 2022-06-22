@@ -17,6 +17,7 @@
 # pylint: disable=g-bad-import-order
 
 import collections
+import copy
 import itertools
 from typing import Any, Mapping, Sequence, Text
 
@@ -32,6 +33,66 @@ Pair = collections.namedtuple('Pair', ['a', 'b'])
 ReplayStructure = collections.namedtuple('ReplayStructure', ['value'])
 
 ## Tests for regular (unprioritized) transition replay.
+
+
+class UniformDistributionTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    random_state = np.random.RandomState(seed=1)
+    self.dist = replay_lib.UniformDistribution(random_state)
+
+  def test_add_and_sample_one(self):
+    self.dist.add([2])
+    self.assertEqual(2, self.dist.sample(1))
+    self.assertTrue(*self.dist.check_valid())
+
+  def test_adding_existing_id_raises_an_error(self):
+    self.dist.add([2, 5])
+    with self.assertRaisesRegex(IndexError, 'Cannot add ID'):
+      self.dist.add([6, 5])
+
+  def test_remove(self):
+    self.dist.add([2, 5, 7])
+    self.dist.remove([5])
+    self.assertNotIn(5, self.dist.sample(100))
+    self.assertTrue(*self.dist.check_valid())
+
+  def test_remove_final_id(self):
+    # IDs are removed by swapping with the final one in a list and popping, so
+    # check this works when the ID being removed is the last one.
+    self.dist.add([2, 5, 7])
+    self.dist.remove([7])
+    self.assertEqual(2, self.dist.size)
+    self.assertNotIn(7, self.dist.sample(100))
+    self.assertTrue(*self.dist.check_valid())
+
+  def test_removing_nonexistent_id_raises_an_error(self):
+    self.dist.add([2, 5])
+    with self.assertRaisesRegex(IndexError, 'Cannot remove ID'):
+      self.dist.remove([7])
+
+  def test_size(self):
+    self.dist.add([2, 5, 3])
+    self.assertEqual(3, self.dist.size)
+    self.dist.remove([5])
+    self.assertEqual(2, self.dist.size)
+
+  def test_get_state_and_set_state(self):
+    self.dist.add([2, 5, 3, 8])
+    self.dist.remove([5])
+    self.assertTrue(*self.dist.check_valid())
+
+    state = copy.deepcopy(self.dist.get_state())
+
+    new_dist = replay_lib.UniformDistribution(np.random.RandomState(seed=1))
+    new_dist.set_state(state)
+
+    self.assertTrue(new_dist.check_valid())
+    self.assertEqual(new_dist.size, self.dist.size)
+
+    new_state = new_dist.get_state()
+    chex.assert_trees_all_close(state, new_state)
 
 
 class TransitionReplayTest(absltest.TestCase):
@@ -61,7 +122,51 @@ class TransitionReplayTest(absltest.TestCase):
   def test_sample(self):
     num_samples = 2
     samples = self.replay.sample(num_samples)
-    chex.assert_shape(samples.a, (num_samples,))
+    self.assertEqual((num_samples,), samples.a.shape)
+
+  def test_invariants(self):
+    capacity = 10
+    num_samples = 3
+    replay = replay_lib.TransitionReplay(
+        capacity=capacity,
+        structure=Pair(a=None, b=None),
+        random_state=np.random.RandomState(1))
+
+    for i in range(31):
+      replay.add(Pair(a=i, b=2 * i))
+      self.assertLessEqual(replay.size, capacity)
+      if i > 2:
+        self.assertEqual(replay.sample(num_samples).a.shape, (num_samples,))
+
+      ids = list(replay.ids())
+      self.assertLen(ids, min(i + 1, capacity))
+      self.assertEqual(ids, sorted(ids))
+      self.assertEqual(ids[0] + len(ids) - 1, ids[-1])
+
+  def test_get_state_and_set_state(self):
+    replay = replay_lib.TransitionReplay(
+        capacity=self.capacity,
+        structure=Pair(a=None, b=None),
+        random_state=np.random.RandomState(1))
+
+    for i in range(100):
+      replay.add(Pair(a=i, b=i))
+    replay.sample(10)
+    self.assertTrue(*replay.check_valid())
+
+    state = copy.deepcopy(replay.get_state())
+
+    new_replay = replay_lib.TransitionReplay(
+        capacity=self.capacity,
+        structure=Pair(a=None, b=None),
+        random_state=np.random.RandomState(1))
+    new_replay.set_state(state)
+
+    self.assertTrue(*new_replay.check_valid())
+    self.assertEqual(new_replay.size, replay.size)
+
+    new_state = new_replay.get_state()
+    chex.assert_trees_all_close(state, new_state)
 
 
 class NStepTransitionAccumulatorTest(absltest.TestCase):
@@ -240,14 +345,14 @@ class NStepTransitionAccumulatorTest(absltest.TestCase):
 ## Tests for prioritized replay.
 
 
-def add(replay, value, priority=None):
-  priority = [0.] * len(value) if priority is None else priority
-  for v, p in zip(value, priority):
+def add(replay, values, priorities=None):
+  priorities = [0.] * len(values) if priorities is None else priorities
+  for v, p in zip(values, priorities):
     replay.add(ReplayStructure(value=v), priority=p)
 
 
-def get(replay, index):
-  return [x.value for x in replay.get(index)]
+def get(replay, ids):
+  return [x.value for x in replay.get(ids)]
 
 
 def make_replay(
@@ -278,13 +383,15 @@ def sample_replay_bin_count(replay, num, sample_size):
   return np.bincount(np.array(all_values).flatten())
 
 
-def make_distribution(capacity=10,
+def make_distribution(min_capacity=0,
+                      max_capacity=None,
                       priority_exponent=0.8,
                       uniform_sample_probability=0.1,
                       seed=1):
   random_state = np.random.RandomState(seed)
   return replay_lib.PrioritizedDistribution(
-      capacity=capacity,
+      max_capacity=max_capacity,
+      min_capacity=min_capacity,
       priority_exponent=priority_exponent,
       uniform_sample_probability=uniform_sample_probability,
       random_state=random_state)
@@ -303,42 +410,188 @@ def sample_distribution_bin_count(distribution, num, sample_size):
 
 class PrioritizedDistributionTest(absltest.TestCase):
 
-  def test_size_is_correct(self):
+  def test_adding_ids_that_already_exist_raises_an_exception(self):
+    dist = make_distribution()
+    dist.add_priorities(ids=[1, 2], priorities=[0.1, 0.2])
+    with self.assertRaisesRegex(IndexError, 'already exists'):
+      dist.add_priorities(ids=[2], priorities=[0.2])
+
+  def test_size_is_correct_with_max_capacity(self):
     capacity = 7
-    dist = make_distribution(capacity=capacity)
+    dist = make_distribution(min_capacity=capacity, max_capacity=capacity)
+    self.assertTrue(*dist.check_valid())
     self.assertEqual(0, dist.size)
 
     # Setting 3 new priorities counts.
-    dist.set_priorities(indices=[2, 3, 5], priorities=[0.2, 0.3, 0.5])
+    dist.add_priorities(ids=[2, 3, 5], priorities=[0.2, 0.3, 0.5])
+    self.assertTrue(*dist.check_valid())
     self.assertEqual(3, dist.size)
 
     # Overwriting existing priority does not increase size.
-    dist.set_priorities(indices=[3], priorities=[1.])
+    dist.update_priorities(ids=[3], priorities=[1.])
+    self.assertTrue(*dist.check_valid())
     self.assertEqual(3, dist.size)
 
-    # Setting priority for a new index increases size, even if priority is 0.
-    dist.set_priorities(indices=[4], priorities=[0.])
+    # Add priority for a new index increases size, even if priority is 0.
+    dist.add_priorities(ids=[4], priorities=[0.])
+    self.assertTrue(*dist.check_valid())
     self.assertEqual(4, dist.size)
 
-    # Setting priority for multiple indices, one that is active one that is not.
-    dist.set_priorities(indices=[2, 6], priorities=[3., 4.])
-    self.assertEqual(5, dist.size)
-
-    # Setting priorities up to capacity.
-    dist.set_priorities(indices=[0, 1], priorities=[2., 3.])
+    # Add priorities up to capacity.
+    dist.add_priorities(ids=[7, 1, 0], priorities=[2., 3., 4.])
+    self.assertTrue(*dist.check_valid())
     self.assertEqual(7, dist.size)
 
+    # Add priorities beyond capacity.
+    with self.assertRaisesRegex(ValueError, 'max capacity would be exceeded'):
+      dist.add_priorities(ids=[9, 8], priorities=[2., 3.])
+    self.assertTrue(*dist.check_valid())
+    self.assertEqual(7, dist.size)
+    self.assertSequenceEqual(list(dist.ids()), [2, 3, 5, 4, 7, 1, 0])
+
+  def test_capacity_does_not_grow_unless_needed(self):
+    dist = make_distribution(min_capacity=4, max_capacity=None)
+
+    dist.add_priorities(ids=[0], priorities=[0.])
+    self.assertEqual(1, dist.size)
+    self.assertEqual(4, dist.capacity)
+
+    dist.add_priorities(ids=[1, 2], priorities=[1., 2.])
+    self.assertEqual(3, dist.size)
+    self.assertEqual(4, dist.capacity)
+
+    dist.add_priorities(ids=[3], priorities=[3.])
+    self.assertEqual(4, dist.size)
+    self.assertEqual(4, dist.capacity)
+
+    dist.add_priorities(ids=[4, 5, 6, 7, 8], priorities=[4., 5., 6., 7., 8.])
+    self.assertEqual(9, dist.size)
+    self.assertEqual(9, dist.capacity)
+
+  def test_capacity_grows_automatically_as_ids_are_added(self):
+    dist = make_distribution(min_capacity=0, max_capacity=None)
+    self.assertEqual(0, dist.capacity)
+    self.assertTrue(*dist.check_valid())
+
+    id_iter = itertools.count()
+
+    def add_priorities(num_ids):
+      ids = list(itertools.islice(id_iter, num_ids))
+      priorities = [float(i) for i in ids]
+      dist.add_priorities(ids, priorities)
+
+    # Add zero IDs, a bit contrived, but should not raise an error.
+    add_priorities(num_ids=0)
+    self.assertEqual(0, dist.capacity)
+    self.assertTrue(*dist.check_valid())
+
+    # Add one ID.
+    add_priorities(num_ids=1)
+    self.assertEqual(0 + 1, dist.capacity)
+    self.assertTrue(*dist.check_valid())
+
+    # Add another ID.
+    add_priorities(num_ids=1)
+    self.assertEqual(1 + 1, dist.capacity)
+    self.assertTrue(*dist.check_valid())
+
+    # Add another ID, capacity grows to 4 as capacity doubles.
+    add_priorities(num_ids=1)
+    self.assertEqual(2 * 2, dist.capacity)
+    self.assertEqual(3, dist.size)
+    self.assertTrue(*dist.check_valid())
+
+    # Add 6 IDs, capacity grows to 4 + 5 as doubling is not sufficient.
+    add_priorities(num_ids=6)
+    self.assertEqual(4 + 5, dist.capacity)
+    self.assertEqual(9, dist.size)
+    self.assertTrue(*dist.check_valid())
+
+  def test_min_capacity_is_respected(self):
+    min_capacity = 3
+    dist = make_distribution(min_capacity=min_capacity)
+
+    self.assertEqual(min_capacity, dist.capacity)
+    self.assertEqual(0, dist.size)
+
+  def test_capacity_correct_after_increasing_capacity(self):
+    min_capacity = 4
+    dist = make_distribution(min_capacity=min_capacity)
+    self.assertEqual(min_capacity, dist.capacity)
+    self.assertEqual(0, dist.size)
+
+    new_capacity = 7
+    dist.ensure_capacity(new_capacity)
+
+    self.assertEqual(new_capacity, dist.capacity)
+    self.assertEqual(0, dist.size)
+    self.assertTrue(*dist.check_valid())
+
+  def test_increasing_capacity_beyond_max_capacity_raises_an_error(self):
+    dist = make_distribution(max_capacity=7)
+
+    dist.ensure_capacity(3)
+
+    with self.assertRaisesRegex(ValueError, 'cannot exceed max_capacity'):
+      dist.ensure_capacity(9)
+
+  def test_setting_capacity_lower_than_current_capacity_does_nothing(self):
+    min_capacity = 4
+    dist = make_distribution(min_capacity=min_capacity)
+    self.assertEqual(min_capacity, dist.capacity)
+
+    dist.ensure_capacity(2)
+
+    # Capacity should remain the same.
+    self.assertEqual(min_capacity, dist.capacity)
+    self.assertTrue(*dist.check_valid())
+
+  def test_changing_capacity_does_not_alter_existing_ids(self):
+    ids = [2, 3, 5]
+    priorities = [0.2, 0.3, 0.5]
+    dist = make_distribution(min_capacity=len(ids), priority_exponent=1.)
+    dist.add_priorities(ids, priorities)
+
+    dist.ensure_capacity(10)
+
+    same_ids = sorted(dist.ids())
+    same_priorities = list(dist.get_exponentiated_priorities(same_ids))
+    self.assertSequenceEqual(ids, same_ids)
+    self.assertSequenceEqual(priorities, same_priorities)
+    self.assertTrue(*dist.check_valid())
+
+  def test_new_size_greater_than_2x_capacity_with_max_capacity_set(self):
+    ids = [2, 3, 5]
+    priorities = [0.2, 0.3, 0.5]
+    dist = make_distribution(min_capacity=len(ids), max_capacity=100)
+    dist.add_priorities(ids, priorities)
+
+    # Add more IDs and priorities, beyond 2x current capacity.
+    dist.add_priorities([6, 7, 8, 9], [0.6, 0.7, 0.8, 0.9])
+    self.assertTrue(*dist.check_valid())
+
+    self.assertEqual(7, dist.capacity)
+
   def test_get_state_and_set_state(self):
-    indices = [2, 3, 5]
+    ids = [2, 3, 5]
     priorities = [0.2, 0.3, 0.5]
 
-    orig_dist = make_distribution(priority_exponent=1.)
-    orig_dist.set_priorities(indices, priorities)
-    state = orig_dist.get_state()
+    dist = make_distribution(priority_exponent=1., min_capacity=9)
+    dist.add_priorities(ids, priorities)
+    self.assertTrue(*dist.check_valid())
 
-    new_dist = make_distribution()
+    state = copy.deepcopy(dist.get_state())
+
+    new_dist = make_distribution(priority_exponent=1., min_capacity=9)
     new_dist.set_state(state)
-    new_priorities = new_dist.get_exponentiated_priorities(indices)
+
+    self.assertTrue(*new_dist.check_valid())
+    self.assertEqual(new_dist.size, dist.size)
+
+    new_state = new_dist.get_state()
+    chex.assert_trees_all_close(state, new_state)
+
+    new_priorities = new_dist.get_exponentiated_priorities(ids)
 
     # Equal to raw priorities since priority exponent is 1.
     np.testing.assert_array_equal(new_priorities, priorities)
@@ -346,20 +599,51 @@ class PrioritizedDistributionTest(absltest.TestCase):
   def test_priorities_can_be_set_again(self):
     priority_exponent = 0.45
     dist = make_distribution(priority_exponent=priority_exponent)
-    indices = [2, 3, 5]
+    ids = [2, 3, 5]
     priorities = [0.2, 0.3, 0.5]
-    dist.set_priorities(indices, priorities)
-    orig_priorities = dist.get_exponentiated_priorities(indices)
-    dist.set_priorities([3], [1.3])
-    new_priorities = dist.get_exponentiated_priorities(indices)
+    dist.add_priorities(ids, priorities)
+    orig_priorities = dist.get_exponentiated_priorities(ids)
+    dist.update_priorities([3], [1.3])
+    new_priorities = dist.get_exponentiated_priorities(ids)
     self.assertNotAlmostEqual(orig_priorities[1], new_priorities[1])
     self.assertAlmostEqual(1.3**priority_exponent, new_priorities[1])
 
+  def test_add_priorities_with_empty_args(self):
+    dist = make_distribution()
+    dist.add_priorities([], [])
+    self.assertTrue(*dist.check_valid())
+
+  def test_priorities_can_be_removed(self):
+    dist = make_distribution()
+    ids = [2, 3, 5, 7]
+    priorities = [0.2, 0.3, 0.5, 0.7]
+    dist.add_priorities(ids, priorities)
+    self.assertEqual(4, dist.size)
+    dist.remove_priorities([3, 7])
+    self.assertEqual(2, dist.size)
+    self.assertTrue(*dist.check_valid())
+
+  def test_remove_priorities_with_empty_args(self):
+    dist = make_distribution()
+    ids = [2, 3, 5]
+    priorities = [0.2, 0.3, 0.5]
+    dist.add_priorities(ids, priorities)
+    dist.remove_priorities([])
+    self.assertTrue(*dist.check_valid())
+
+  def test_update_priorities_with_empty_args(self):
+    dist = make_distribution()
+    ids = [2, 3, 5]
+    priorities = [0.2, 0.3, 0.5]
+    dist.add_priorities(ids, priorities)
+    dist.update_priorities([], [])
+    self.assertTrue(*dist.check_valid())
+
   def test_all_zero_priorities_results_in_uniform_sampling(self):
     dist = make_distribution()
-    dist.set_priorities(indices=[2, 3, 5], priorities=[0., 0., 0.])
+    dist.add_priorities(ids=[2, 3, 5], priorities=[0., 0., 0.])
     for _ in range(10):
-      unused_indices, probabilities = dist.sample(size=2)
+      unused_ids, probabilities = dist.sample(size=2)
       np.testing.assert_allclose(probabilities, 1. / 3.)
 
   def test_sample_distribution(self):
@@ -370,11 +654,11 @@ class PrioritizedDistributionTest(absltest.TestCase):
         uniform_sample_probability=uniform_sample_probability)
 
     # Set priorities, update one.
-    indices = [2, 3, 5]
+    ids = [2, 3, 5]
     initial_priorities = np.array([1., 0., 3.], dtype=np.float64)
-    dist.set_priorities(indices=indices, priorities=initial_priorities)
+    dist.add_priorities(ids=ids, priorities=initial_priorities)
     final_priorities = np.array([1., 4., 3.], dtype=np.float64)
-    dist.update_priorities([indices[1]], [final_priorities[1]])
+    dist.update_priorities([ids[1]], [final_priorities[1]])
 
     usp = uniform_sample_probability
     expected_raw_sample_dist = final_priorities**priority_exponent
@@ -382,33 +666,58 @@ class PrioritizedDistributionTest(absltest.TestCase):
     expected_sample_dist = ((1 - usp) * expected_raw_sample_dist +
                             usp * 1 / len(final_priorities))
 
-    sampled_indices, counts = sample_distribution_bin_count(
-        dist, num=10000, sample_size=2)
-    self.assertEqual(indices, sampled_indices)
+    sampled_ids, counts = sample_distribution_bin_count(
+        dist, num=50_000, sample_size=2)
+    self.assertEqual(ids, sampled_ids)
     sample_dist = counts / counts.sum()
 
     np.testing.assert_allclose(sample_dist, expected_sample_dist, rtol=1e-2)
 
-  def test_update_priorities_raises_an_error_if_index_not_active(self):
+  def test_update_priorities_raises_an_error_if_id_not_present(self):
     dist = make_distribution()
-    dist.set_priorities(indices=[2, 3, 5], priorities=[1., 2., 3.])
+    dist.add_priorities(ids=[2, 3, 5], priorities=[1., 2., 3.])
 
     with self.assertRaises(IndexError):
-      dist.update_priorities(indices=[4], priorities=[0.])
+      dist.update_priorities(ids=[4], priorities=[0.])
 
     with self.assertRaises(IndexError):
-      dist.update_priorities(indices=[1], priorities=[1.])
+      dist.update_priorities(ids=[1], priorities=[1.])
 
     with self.assertRaises(IndexError):
-      dist.update_priorities(indices=[0], priorities=[2.])
+      dist.update_priorities(ids=[0], priorities=[2.])
 
   def test_priorities_can_be_updated(self):
     dist = make_distribution(priority_exponent=1.)
-    indices = [2, 3, 5]
-    dist.set_priorities(indices=indices, priorities=[1., 2., 3.])
-    dist.update_priorities(indices=[3, 5], priorities=[4., 6.])
-    updated_priorities = dist.get_exponentiated_priorities(indices)
+    ids = [2, 3, 5]
+    dist.add_priorities(ids=ids, priorities=[1., 2., 3.])
+    dist.update_priorities(ids=[3, 5], priorities=[4., 6.])
+    updated_priorities = dist.get_exponentiated_priorities(ids)
     np.testing.assert_allclose(updated_priorities, [1, 4, 6])
+
+  def test_removing_ids_results_in_only_remaining_ids_being_sampled(self):
+    usp = 0.1
+    dist = make_distribution(
+        priority_exponent=1., uniform_sample_probability=usp)
+    ids = [2, 3, 5]
+    dist.add_priorities(ids=ids, priorities=[1., 100., 9.])
+
+    dist.remove_priorities([3])
+    ids, probabilities = dist.sample(1000)
+    unique_probs = list(sorted(set(probabilities)))
+
+    self.assertSetEqual({2, 5}, set(ids))
+    self.assertLen(unique_probs, 2)
+    self.assertAlmostEqual(usp * 0.5 + (1 - usp) * 0.1, unique_probs[0])
+    self.assertAlmostEqual(usp * 0.5 + (1 - usp) * 0.9, unique_probs[1])
+
+  def test_removing_last_id_is_valid(self):
+    # This tests internal logic for ID removal where the final ID is "special".
+    dist = make_distribution()
+    ids = [2, 3, 5]
+    dist.add_priorities(ids=ids, priorities=[1., 100., 9.])
+
+    dist.remove_priorities([5])
+    self.assertTrue(*dist.check_valid())
 
 
 class PrioritizedTransitionReplayTest(absltest.TestCase):
@@ -432,8 +741,9 @@ class PrioritizedTransitionReplayTest(absltest.TestCase):
     num_items = 7
     assert num_items > capacity
     add(replay, list(range(num_items)))
+    self.assertTrue(*replay.check_valid())
 
-    values = get(replay, index=list(range(capacity)))
+    values = get(replay, list(range(num_items - capacity, num_items)))
     expected_values = list(range(num_items - capacity, num_items))
     self.assertCountEqual(expected_values, values)
 
@@ -441,12 +751,12 @@ class PrioritizedTransitionReplayTest(absltest.TestCase):
     replay = make_replay()
     add(replay, [1, 2, 3])
     sample_size = 2
-    samples, unused_indices, unused_weights = replay.sample(sample_size)
+    samples, unused_ids, unused_weights = replay.sample(sample_size)
     chex.assert_shape(samples.value, (sample_size,))
 
   def test_get_state_and_set_state(self):
     orig_replay = make_replay(priority_exponent=1.)
-    add(orig_replay, value=[11, 22, 33], priority=[1., 2., 3.])
+    add(orig_replay, values=[11, 22, 33], priorities=[1., 2., 3.])
     state = orig_replay.get_state()
     new_replay = make_replay()
     new_replay.set_state(state)
@@ -463,7 +773,9 @@ class PrioritizedTransitionReplayTest(absltest.TestCase):
         seed=1)
 
     priorities = np.array([3., 2., 0., 4.], dtype=np.float64)
-    add(replay, value=list(range(len(priorities))), priority=list(priorities))
+    add(replay,
+        values=list(range(len(priorities))),
+        priorities=list(priorities))
 
     pe, usp = priority_exponent, uniform_sample_probability
     expected_dist = np.zeros_like(priorities)
@@ -483,7 +795,7 @@ class SumTreeTest(parameterized.TestCase):
 
   def test_can_create_empty(self):
     sum_tree = replay_lib.SumTree()
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
     self.assertEqual(0, sum_tree.size)
     self.assertTrue(np.isnan(sum_tree.root()))
 
@@ -504,13 +816,13 @@ class SumTreeTest(parameterized.TestCase):
   def test_resize_to_1(self):
     sum_tree = replay_lib.SumTree()
     sum_tree.resize(1)
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
     self.assertEqual(0, sum_tree.root())
 
   def test_resize_to_0(self):
     sum_tree = replay_lib.SumTree()
     sum_tree.resize(0)
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
     self.assertTrue(np.isnan(sum_tree.root()))
 
   def test_set_all(self):
@@ -520,7 +832,7 @@ class SumTreeTest(parameterized.TestCase):
     self.assertLen(values, sum_tree.size)
     for i in range(len(values)):
       np.testing.assert_array_almost_equal([values[i]], sum_tree.get([i]))
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
 
   def test_capacity_greater_or_equal_to_size_and_power_of_2(self):
     sum_tree = replay_lib.SumTree()
@@ -547,7 +859,7 @@ class SumTreeTest(parameterized.TestCase):
       np.testing.assert_array_almost_equal([values[i]], sum_tree.get([i]))
     for i in range(len(values), new_size):
       np.testing.assert_array_almost_equal([0.], sum_tree.get([i]))
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
 
   def test_resizes_preserves_values_when_shrinking(self):
     sum_tree = replay_lib.SumTree()
@@ -557,7 +869,7 @@ class SumTreeTest(parameterized.TestCase):
     sum_tree.resize(new_size)
     for i in range(new_size):
       np.testing.assert_array_almost_equal([values[i]], sum_tree.get([i]))
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
 
   def test_resizing_to_size_between_current_size_and_capacity(self):
     sum_tree = replay_lib.SumTree()
@@ -567,7 +879,7 @@ class SumTreeTest(parameterized.TestCase):
     assert sum_tree.size < new_size < sum_tree.capacity
     sum_tree.resize(new_size)
     np.testing.assert_allclose(values + [0., 0.], sum_tree.values)
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
 
   def test_exception_raised_when_index_out_of_bounds_in_get(self):
     sum_tree = replay_lib.SumTree()
@@ -683,19 +995,26 @@ class SumTreeTest(parameterized.TestCase):
     sum_tree.set_all(values)
     sum_tree.set([1], [2])
     self.assertAlmostEqual(sum(values) - 5 + 2, sum_tree.root())
-    sum_tree.check_valid()
+    self.assertTrue(*sum_tree.check_valid())
 
-  def test_getting_and_setting_state(self):
+  def test_get_state_and_set_state(self):
     sum_tree = replay_lib.SumTree()
     values = [4, 5, 3, 9]
     sum_tree.set_all(values)
-    state = sum_tree.get_state()
+    self.assertTrue(*sum_tree.check_valid())
+
+    state = copy.deepcopy(sum_tree.get_state())
 
     new_sum_tree = replay_lib.SumTree()
     new_sum_tree.set_state(state)
-    new_sum_tree.check_valid()
-    np.testing.assert_allclose(new_sum_tree.values, sum_tree.values)
+
+    self.assertTrue(*new_sum_tree.check_valid())
     self.assertEqual(sum_tree.size, new_sum_tree.size)
+
+    new_state = new_sum_tree.get_state()
+    chex.assert_trees_all_close(state, new_state)
+
+    np.testing.assert_allclose(new_sum_tree.values, sum_tree.values)
     self.assertEqual(sum_tree.capacity, new_sum_tree.capacity)
 
 
@@ -809,7 +1128,7 @@ class NaiveSumTreeEquivalenceTest(parameterized.TestCase):
     for actual_value, naive_value in operation_iterator:
       if actual_value is not None and naive_value is not None:
         np.testing.assert_allclose(actual_value, naive_value)
-      actual_sum_tree.check_valid()
+      self.assertTrue(*actual_sum_tree.check_valid())
       self.assertAlmostEqual(naive_sum_tree.root(), actual_sum_tree.root())
       np.testing.assert_allclose(naive_sum_tree.values, actual_sum_tree.values)
 

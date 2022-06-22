@@ -18,7 +18,7 @@
 
 import collections
 import typing
-from typing import Any, Callable, Generic, Iterable, List, Mapping, Optional, Sequence, Text, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, Mapping, Optional, Sequence, Text, Tuple, TypeVar
 
 import dm_env
 import numpy as np
@@ -40,8 +40,84 @@ class Transition(typing.NamedTuple):
   s_t: Optional[np.ndarray]
 
 
+class UniformDistribution:
+  """Provides uniform sampling of user-defined integer IDs."""
+
+  def __init__(self, random_state: np.random.RandomState):
+    self._random_state = random_state
+    self._ids = []  # IDs in a contiguous indexable format for sampling.
+    self._id_to_index = {}  # User ID -> index into self._ids.
+
+  def add(self, ids: Sequence[int]) -> None:
+    """Adds new IDs."""
+    for i in ids:
+      if i in self._id_to_index:
+        raise IndexError('Cannot add ID %d, it already exists.' % i)
+
+    for i in ids:
+      idx = len(self._ids)
+      self._id_to_index[i] = idx
+      self._ids.append(i)
+
+  def remove(self, ids: Sequence[int]) -> None:
+    """Removes existing IDs."""
+    for i in ids:
+      if i not in self._id_to_index:
+        raise IndexError('Cannot remove ID %d, it does not exist.' % i)
+
+    for i in ids:
+      idx = self._id_to_index[i]
+      # Swap ID to be removed with ID at the end of self._ids.
+      self._ids[idx], self._ids[-1] = self._ids[-1], self._ids[idx]
+      self._id_to_index[self._ids[idx]] = idx  # Update index for swapped ID.
+      self._id_to_index.pop(self._ids.pop())  # Remove ID from data structures.
+
+  def sample(self, size: int) -> np.ndarray:
+    """Returns sample of IDs, uniformly sampled."""
+    indices = self._random_state.randint(self.size, size=size)
+    ids = np.fromiter((self._ids[idx] for idx in indices),
+                      dtype=np.int64,
+                      count=len(indices))
+    return ids
+
+  def ids(self) -> Iterable[int]:
+    """Returns an iterable of all current IDs."""
+    return self._id_to_index.keys()
+
+  @property
+  def size(self) -> int:
+    """Number of IDs currently tracked."""
+    return len(self._ids)
+
+  def get_state(self) -> Mapping[Text, Any]:
+    """Retrieves distribution state as a dictionary (e.g. for serialization)."""
+    return {
+        'ids': self._ids,
+        'id_to_index': self._id_to_index,
+    }
+
+  def set_state(self, state: Mapping[Text, Any]) -> None:
+    """Sets distribution state from a (potentially de-serialized) dictionary."""
+    self._ids = state['ids']
+    self._id_to_index = state['id_to_index']
+
+  def check_valid(self) -> Tuple[bool, str]:
+    """Checks internal consistency."""
+    if len(self._ids) != len(self._id_to_index):
+      return False, 'ids and id_to_index should be the same size.'
+    if len(self._ids) != len(set(self._ids)):
+      return False, 'IDs should be unique.'
+    if len(self._id_to_index.values()) != len(set(self._id_to_index.values())):
+      return False, 'Indices should be unique.'
+    for i in self._ids:
+      if self._ids[self._id_to_index[i]] != i:
+        return False, 'ID %d should map to itself.' % i
+    # Indices map to themselves because of previous check and uniqueness.
+    return True, ''
+
+
 class TransitionReplay(Generic[ReplayStructure]):
-  """Uniform replay, with circular buffer storage for flat named tuples."""
+  """Uniform replay, with LIFO storage for flat named tuples."""
 
   def __init__(self,
                capacity: int,
@@ -55,30 +131,42 @@ class TransitionReplay(Generic[ReplayStructure]):
     self._encoder = encoder or (lambda s: s)
     self._decoder = decoder or (lambda s: s)
 
-    self._storage = [None] * capacity
-    self._num_added = 0
+    self._distribution = UniformDistribution(random_state=random_state)
+    self._storage = collections.OrderedDict()  # ID -> item.
+    self._t = 0  # Used to generate unique IDs for each item.
 
   def add(self, item: ReplayStructure) -> None:
     """Adds single item to replay."""
-    self._storage[self._num_added % self._capacity] = self._encoder(item)
-    self._num_added += 1
+    if self.size == self._capacity:
+      oldest_id, _ = self._storage.popitem(last=False)
+      self._distribution.remove([oldest_id])
 
-  def get(self, indices: Sequence[int]) -> List[ReplayStructure]:
-    """Retrieves items by indices."""
-    return [self._decoder(self._storage[i]) for i in indices]
+    item_id = self._t
+    self._distribution.add([item_id])
+    self._storage[item_id] = self._encoder(item)
+    self._t += 1
+
+  def get(self, ids: Sequence[int]) -> Iterable[ReplayStructure]:
+    """Retrieves items by IDs."""
+    for i in ids:
+      yield self._decoder(self._storage[i])
 
   def sample(self, size: int) -> ReplayStructure:
     """Samples batch of items from replay uniformly, with replacement."""
-    indices = self._random_state.randint(self.size, size=size)
-    samples = self.get(indices)
+    ids = self._distribution.sample(size)
+    samples = self.get(ids)
     transposed = zip(*samples)
     stacked = [np.stack(xs, axis=0) for xs in transposed]
     return type(self._structure)(*stacked)  # pytype: disable=not-callable
 
+  def ids(self) -> Iterable[int]:
+    """Get IDs of stored transitions, for testing."""
+    return self._storage.keys()
+
   @property
   def size(self) -> int:
-    """Number of items currently contained in replay."""
-    return min(self._num_added, self._capacity)
+    """Number of items currently contained in the replay."""
+    return len(self._storage)
 
   @property
   def capacity(self) -> int:
@@ -88,14 +176,25 @@ class TransitionReplay(Generic[ReplayStructure]):
   def get_state(self) -> Mapping[Text, Any]:
     """Retrieves replay state as a dictionary (e.g. for serialization)."""
     return {
-        'storage': self._storage,
-        'num_added': self._num_added,
+        # Serialize OrderedDict as a simpler, more common data structure.
+        'storage': list(self._storage.items()),
+        't': self._t,
+        'distribution': self._distribution.get_state(),
     }
 
   def set_state(self, state: Mapping[Text, Any]) -> None:
     """Sets replay state from a (potentially de-serialized) dictionary."""
-    self._storage = state['storage']
-    self._num_added = state['num_added']
+    self._storage = collections.OrderedDict(state['storage'])
+    self._t = state['t']
+    self._distribution.set_state(state['distribution'])
+
+  def check_valid(self) -> Tuple[bool, str]:
+    """Checks internal consistency."""
+    if self._t < len(self._storage):
+      return False, 't should be >= storage size.'
+    if set(self._storage.keys()) != set(self._distribution.ids()):
+      return False, 'IDs in storage and distribution do not match.'
+    return self._distribution.check_valid()
 
 
 def _power(base, exponent) -> np.ndarray:
@@ -160,7 +259,7 @@ class SumTree:
     # locations 2 * i, 2 * i + 1.
     self._size = 0
     self._storage = np.zeros(0, dtype=np.float64)
-    self._first_leaf = 0
+    self._first_leaf = 0  # Boundary between non-leaf and leaf nodes.
 
   def resize(self, size: int) -> None:
     """Resizes tree, truncating or expanding with zeros as needed."""
@@ -243,20 +342,19 @@ class SumTree:
     self._storage = state['storage']
     self._first_leaf = state['first_leaf']
 
-  def check_valid(self) -> None:
+  def check_valid(self) -> Tuple[bool, str]:
     """Checks internal consistency."""
-    self._assert(len(self._storage) == 2 * self._first_leaf)
-    self._assert(0 <= self.size <= self.capacity)
-    self._assert(len(self.values) == self.size)
-
+    if len(self._storage) != 2 * self._first_leaf:
+      return False, 'first_leaf should be half the size of storage.'
+    if not 0 <= self.size <= self.capacity:
+      return False, 'Require 0 <= self.size <= self.capacity.'
+    if len(self.values) != self.size:
+      return False, 'Number of values should be equal to the size.'
     storage = self._storage
     for i in range(1, self._first_leaf):
-      self._assert(storage[i] == storage[2 * i] + storage[2 * i + 1])
-
-  def _assert(self, condition, message='SumTree is internally inconsistent.'):
-    """Raises `RuntimeError` with given message if condition is not met."""
-    if not condition:
-      raise RuntimeError(message)
+      if storage[i] != storage[2 * i] + storage[2 * i + 1]:
+        return False, 'Non-leaf node %d should be sum of child nodes.' % i
+    return True, ''
 
   def _initialize(self, size: int, values: Optional[Sequence[float]]) -> None:
     """Resizes storage and sets new values if supplied."""
@@ -326,49 +424,124 @@ class SumTree:
 
 
 class PrioritizedDistribution:
-  """Distribution for weighted sampling."""
+  """Distribution for weighted sampling of user-defined integer IDs."""
 
   def __init__(
       self,
-      capacity: int,
       priority_exponent: float,
       uniform_sample_probability: float,
       random_state: np.random.RandomState,
+      min_capacity: int = 0,
+      max_capacity: Optional[int] = None,
   ):
     if priority_exponent < 0.:
       raise ValueError('Require priority_exponent >= 0.')
     self._priority_exponent = priority_exponent
     if not 0. <= uniform_sample_probability <= 1.:
       raise ValueError('Require 0 <= uniform_sample_probability <= 1.')
+    if max_capacity is not None and max_capacity < min_capacity:
+      raise ValueError('Require max_capacity >= min_capacity.')
+    if min_capacity < 0:
+      raise ValueError('Require min_capacity >= 0.')
     self._uniform_sample_probability = uniform_sample_probability
+    self._max_capacity = max_capacity
     self._sum_tree = SumTree()
-    self._sum_tree.resize(capacity)
+    self._sum_tree.resize(min_capacity)
     self._random_state = random_state
-    self._active_indices = []  # For uniform sampling.
-    self._active_indices_mask = np.zeros(capacity, dtype=np.bool)
+    self._id_to_index = {}  # User ID -> sum tree index.
+    self._index_to_id = {}  # Sum tree index -> user ID.
+    # Unused sum tree indices that can be allocated to new user IDs.
+    self._inactive_indices = list(range(min_capacity))
+    # Currently used sum tree indices, needed for uniform sampling.
+    self._active_indices = []
+    # Maps an active index to its location in active_indices_, for removal.
+    self._active_indices_location = {}
 
-  def set_priorities(self, indices: Sequence[int],
+  def ensure_capacity(self, capacity: int) -> None:
+    """Ensures sufficient capacity, a no-op if capacity is already enough."""
+    if self._max_capacity is not None and capacity > self._max_capacity:
+      raise ValueError('capacity %d cannot exceed max_capacity %d' %
+                       (capacity, self._max_capacity))
+    if capacity <= self._sum_tree.size:
+      return  # There is already sufficient capacity.
+    self._inactive_indices.extend(range(self._sum_tree.size, capacity))
+    self._sum_tree.resize(capacity)
+
+  def add_priorities(self, ids: Sequence[int],
                      priorities: Sequence[float]) -> None:
-    """Sets priorities for indices, whether or not all indices already exist."""
-    for idx in indices:
-      if not self._active_indices_mask[idx]:
-        self._active_indices.append(idx)
-        self._active_indices_mask[idx] = True
+    """Add priorities for new IDs."""
+    for i in ids:
+      if i in self._id_to_index:
+        raise IndexError('ID %d already exists.' % i)
+
+    new_size = self.size + len(ids)
+    if self._max_capacity is not None and new_size > self._max_capacity:
+      raise ValueError('Cannot add IDs as max capacity would be exceeded.')
+
+    # Expand to accommodate new IDs if needed.
+    if new_size > self.capacity:
+      candidate_capacity = max(new_size, 2 * self.capacity)
+      if self._max_capacity is None:
+        new_capacity = candidate_capacity
+      else:
+        new_capacity = min(self._max_capacity, candidate_capacity)
+      self.ensure_capacity(new_capacity)
+
+    # Assign unused indices to IDs.
+    indices = []
+    for i in ids:
+      idx = self._inactive_indices.pop()
+      self._active_indices_location[idx] = len(self._active_indices)
+      self._active_indices.append(idx)
+      self._id_to_index[i] = idx
+      self._index_to_id[idx] = i
+      indices.append(idx)
+
+    # Set priorities on sum tree.
     self._sum_tree.set(indices, _power(priorities, self._priority_exponent))
 
-  def update_priorities(self, indices: Sequence[int],
+  def remove_priorities(self, ids: Sequence[int]) -> None:
+    """Remove priorities associated with given IDs."""
+    indices = []
+    for i in ids:
+      try:
+        idx = self._id_to_index[i]
+      except IndexError as err:
+        raise IndexError('Cannot remove ID %d, it does not exist.' % i) from err
+      indices.append(idx)
+
+    for i, idx in zip(ids, indices):
+      del self._id_to_index[i]
+      del self._index_to_id[idx]
+      # Swap index to be removed with index at the end.
+      j = self._active_indices_location[idx]
+      self._active_indices[j], self._active_indices[-1] = (
+          self._active_indices[-1], self._active_indices[j])
+      # Update location for the swapped index.
+      self._active_indices_location[self._active_indices[j]] = j
+      # Remove index from data structures.
+      self._active_indices_location.pop(self._active_indices.pop())
+
+    self._inactive_indices.extend(indices)
+    self._sum_tree.set(indices, np.zeros((len(indices),), dtype=np.float64))
+
+  def update_priorities(self, ids: Sequence[int],
                         priorities: Sequence[float]) -> None:
-    """Updates priorities for existing indices."""
-    for idx in indices:
-      if not self._active_indices_mask[idx]:
-        raise IndexError('Index %s cannot be updated as it is inactive.' % idx)
+    """Updates priorities for existing IDs."""
+    indices = []
+    for i in ids:
+      if i not in self._id_to_index:
+        raise IndexError('ID %d does not exist.' % i)
+      indices.append(self._id_to_index[i])
     self._sum_tree.set(indices, _power(priorities, self._priority_exponent))
 
   def sample(self, size: int) -> Tuple[np.ndarray, np.ndarray]:
-    """Returns sample of indices with corresponding probabilities."""
+    """Returns sample of IDs with corresponding probabilities."""
+    if self.size == 0:
+      raise RuntimeError('No IDs to sample.')
     uniform_indices = [
-        self._active_indices[i] for i in self._random_state.randint(
-            len(self._active_indices), size=size)
+        self._active_indices[j]
+        for j in self._random_state.randint(self.size, size=size)
     ]
 
     if self._sum_tree.root() == 0.:
@@ -391,35 +564,81 @@ class PrioritizedDistribution:
       prioritized_probs = priorities / self._sum_tree.root()
 
     sample_probs = (1. - usp) * prioritized_probs + usp * uniform_prob
-    return indices, sample_probs
+    ids = np.fromiter((self._index_to_id[idx] for idx in indices),
+                      dtype=np.int64,
+                      count=len(indices))
+    return ids, sample_probs
 
-  def get_exponentiated_priorities(self,
-                                   indices: Sequence[int]) -> Sequence[float]:
+  def get_exponentiated_priorities(self, ids: Sequence[int]) -> Sequence[float]:
     """Returns priority ** priority_exponent for the given indices."""
+    indices = np.fromiter((self._id_to_index[i] for i in ids),
+                          dtype=np.int64,
+                          count=len(ids))
     return self._sum_tree.get(indices)
+
+  def ids(self) -> Iterable[int]:
+    """Returns an iterable of all current IDs."""
+    return self._id_to_index.keys()
+
+  @property
+  def capacity(self) -> int:
+    """Number of IDs that can be stored until memory needs to be allocated."""
+    return self._sum_tree.size
 
   @property
   def size(self) -> int:
-    """Number of elements currently tracked by distribution."""
-    return len(self._active_indices)
+    """Number of IDs currently tracked."""
+    return len(self._id_to_index)
 
   def get_state(self) -> Mapping[Text, Any]:
     """Retrieves distribution state as a dictionary (e.g. for serialization)."""
     return {
         'sum_tree': self._sum_tree.get_state(),
+        'id_to_index': self._id_to_index,
+        'index_to_id': self._index_to_id,
+        'inactive_indices': self._inactive_indices,
         'active_indices': self._active_indices,
-        'active_indices_mask': self._active_indices_mask,
+        'active_indices_location': self._active_indices_location,
     }
 
   def set_state(self, state: Mapping[Text, Any]) -> None:
     """Sets distribution state from a (potentially de-serialized) dictionary."""
     self._sum_tree.set_state(state['sum_tree'])
+    self._id_to_index = state['id_to_index']
+    self._index_to_id = state['index_to_id']
+    self._inactive_indices = state['inactive_indices']
     self._active_indices = state['active_indices']
-    self._active_indices_mask = state['active_indices_mask']
+    self._active_indices_location = state['active_indices_location']
+
+  def check_valid(self) -> Tuple[bool, str]:
+    """Checks internal consistency."""
+    if len(self._id_to_index) != len(self._index_to_id):
+      return False, 'ID to index maps are not the same size.'
+    for i in self._id_to_index:
+      if self._index_to_id[self._id_to_index[i]] != i:
+        return False, 'ID %d should map to itself.' % i
+    # Indices map to themselves because of previous check and uniqueness.
+    if len(set(self._inactive_indices)) != len(self._inactive_indices):
+      return False, 'Inactive indices should be unique.'
+    if len(set(self._active_indices)) != len(self._active_indices):
+      return False, 'Active indices should be unique.'
+    if set(self._active_indices) != set(self._index_to_id.keys()):
+      return False, 'Active indices should match index to ID mapping keys.'
+    all_indices = self._inactive_indices + self._active_indices
+    if sorted(all_indices) != list(range(self._sum_tree.size)):
+      return False, 'Inactive and active indices should partition all indices.'
+    if len(self._active_indices) != len(self._active_indices_location):
+      return False, 'Active indices and their location should be the same size.'
+    for j, i in enumerate(self._active_indices):
+      if j != self._active_indices_location[i]:
+        return False, ('Active index location %d not correct for index %d.' %
+                       (j, i))
+
+    return self._sum_tree.check_valid()
 
 
 class PrioritizedTransitionReplay(Generic[ReplayStructure]):
-  """Prioritized replay, with circular buffer storage for flat named tuples.
+  """Prioritized replay, with LIFO storage for flat named tuples.
 
   This is the proportional variant as described in
   http://arxiv.org/abs/1511.05952.
@@ -443,54 +662,60 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
     self._encoder = encoder or (lambda s: s)
     self._decoder = decoder or (lambda s: s)
     self._distribution = PrioritizedDistribution(
-        capacity=capacity,
+        min_capacity=capacity,
+        max_capacity=capacity,
         priority_exponent=priority_exponent,
         uniform_sample_probability=uniform_sample_probability,
         random_state=random_state)
     self._importance_sampling_exponent = importance_sampling_exponent
     self._normalize_weights = normalize_weights
-    self._storage = [None] * capacity
-    self._t = 0
+    self._storage = collections.OrderedDict()  # ID -> item.
+    self._t = 0  # Used to allocate IDs.
 
   def add(self, item: ReplayStructure, priority: float) -> None:
     """Adds a single item with a given priority to the replay buffer."""
-    index = self._t % self._capacity
-    self._distribution.set_priorities([index], [priority])
-    self._storage[index] = self._encoder(item)
+    if self.size == self._capacity:
+      oldest_id, _ = self._storage.popitem(last=False)
+      self._distribution.remove_priorities([oldest_id])
+
+    item_id = self._t
+    self._distribution.add_priorities([item_id], [priority])
+    self._storage[item_id] = self._encoder(item)
     self._t += 1
 
-  def get(self, indices: Sequence[int]) -> List[ReplayStructure]:
-    """Retrieves transitions by indices."""
-    return [self._decoder(self._storage[i]) for i in indices]
+  def get(self, ids: Sequence[int]) -> Iterable[ReplayStructure]:
+    """Retrieves items by IDs."""
+    for i in ids:
+      yield self._decoder(self._storage[i])
 
   def sample(
       self,
       size: int,
   ) -> Tuple[ReplayStructure, np.ndarray, np.ndarray]:
     """Samples a batch of transitions."""
-    indices, probabilities = self._distribution.sample(size)
+    ids, probabilities = self._distribution.sample(size)
     weights = importance_sampling_weights(
         probabilities,
         uniform_probability=1. / self.size,
         exponent=self.importance_sampling_exponent,
         normalize=self._normalize_weights)
-    samples = self.get(indices)
+    samples = self.get(ids)
     transposed = zip(*samples)
     stacked = [np.stack(xs, axis=0) for xs in transposed]
     # pytype: disable=not-callable
-    return type(self._structure)(*stacked), indices, weights
+    return type(self._structure)(*stacked), ids, weights
     # pytype: enable=not-callable
 
-  def update_priorities(self, indices: Sequence[int],
+  def update_priorities(self, ids: Sequence[int],
                         priorities: Sequence[float]) -> None:
-    """Updates indices with given priorities."""
+    """Updates IDs with given priorities."""
     priorities = np.asarray(priorities)
-    self._distribution.update_priorities(indices, priorities)
+    self._distribution.update_priorities(ids, priorities)
 
   @property
   def size(self) -> int:
     """Number of elements currently contained in replay."""
-    return min(self._t, self._capacity)
+    return len(self._storage)
 
   @property
   def capacity(self) -> int:
@@ -505,16 +730,25 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
   def get_state(self) -> Mapping[Text, Any]:
     """Retrieves replay state as a dictionary (e.g. for serialization)."""
     return {
+        # Serialize OrderedDict as a simpler, more common data structure.
+        'storage': list(self._storage.items()),
         't': self._t,
-        'storage': self._storage,
         'distribution': self._distribution.get_state(),
     }
 
   def set_state(self, state: Mapping[Text, Any]) -> None:
     """Sets replay state from a (potentially de-serialized) dictionary."""
+    self._storage = collections.OrderedDict(state['storage'])
     self._t = state['t']
-    self._storage = state['storage']
     self._distribution.set_state(state['distribution'])
+
+  def check_valid(self) -> Tuple[bool, str]:
+    """Checks internal consistency."""
+    if self._t < len(self._storage):
+      return False, 't should be >= storage size.'
+    if set(self._storage.keys()) != set(self._distribution.ids()):
+      return False, 'IDs in storage and distribution do not match.'
+    return self._distribution.check_valid()
 
 
 class TransitionAccumulator:
