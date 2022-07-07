@@ -23,11 +23,11 @@ import os
 import timeit
 from typing import Any, Iterable, Mapping, Optional, Text, Tuple, Union
 
+import distrax
 import dm_env
 import jax
 import jax.numpy as jnp
 import numpy as np
-import rlax
 
 from dqn_zoo import networks
 from dqn_zoo import processors
@@ -327,7 +327,8 @@ class EpsilonGreedyActor(Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, apply_key, policy_key = jax.random.split(rng_key, 3)
       q_t = network.apply(network_params, apply_key, s_t[None, ...]).q_values[0]
-      a_t = rlax.epsilon_greedy().sample(policy_key, q_t, exploration_epsilon)
+      a_t = distrax.EpsilonGreedy(q_t,
+                                  exploration_epsilon).sample(seed=policy_key)
       return rng_key, a_t
 
     self._select_action = jax.jit(select_action)

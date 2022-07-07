@@ -20,6 +20,7 @@ from typing import Any, Callable, Mapping, Text, Tuple
 
 from absl import logging
 import chex
+import distrax
 import dm_env
 import jax
 import jax.numpy as jnp
@@ -73,7 +74,8 @@ class IqnEpsilonGreedyActor(parts.Agent):
       tau_t = _sample_tau(tau_key, (1, tau_samples))
       q_t = network.apply(network_params, apply_key,
                           IqnInputs(s_t[None, ...], tau_t)).q_values[0]
-      a_t = rlax.epsilon_greedy().sample(policy_key, q_t, exploration_epsilon)
+      a_t = distrax.EpsilonGreedy(q_t,
+                                  exploration_epsilon).sample(seed=policy_key)
       return rng_key, a_t
 
     self._select_action = jax.jit(select_action)
@@ -215,7 +217,8 @@ class Iqn(parts.Agent):
       tau_t = _sample_tau(sample_key, (1, tau_samples_policy))
       q_t = network.apply(network_params, apply_key,
                           IqnInputs(s_t[None, ...], tau_t)).q_values[0]
-      a_t = rlax.epsilon_greedy().sample(policy_key, q_t, exploration_epsilon)
+      a_t = distrax.EpsilonGreedy(q_t,
+                                  exploration_epsilon).sample(seed=policy_key)
       v_t = jnp.max(q_t, axis=-1)
       return rng_key, a_t, v_t
 
