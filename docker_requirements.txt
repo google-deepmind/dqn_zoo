@@ -1,43 +1,40 @@
-# This list of dependencies was generated with `pip freeze` for Dockerfile. If
-# using in a different context, best to ignore the transitive dependencies.
+# This list of dependencies was partially generated with `pip freeze` for
+# the Dockerfile. If using this list in a different context, ignore the
+# transitive dependencies.
 
 # DeepMind libraries.
-chex==0.0.2
-dm-env==1.2
-dm-haiku @ git+https://github.com/deepmind/dm-haiku.git@db991d56563221d5a06be5e7228155e53d01aba9
-dm-tree==0.1.5
-optax==0.0.1
-rlax @ git+https://github.com/deepmind/rlax.git@870cba1ea8ad36725f4f3a790846298657b6fd4b
+chex==0.1.3
+distrax==0.1.2
+dm-env==1.5
+dm-haiku==0.0.6
+dm-tree==0.1.7
+optax==0.1.2
+rlax==0.1.2
 
 # JAX libraries with GPU support.
-jax==0.1.72
-jaxlib @ https://storage.googleapis.com/jax-releases/cuda101/jaxlib-0.1.49-cp36-none-linux_x86_64.whl
+jax==0.3.10
+jaxlib @ https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.10%2Bcuda11.cudnn805-cp39-none-manylinux2014_x86_64.whl
 
 # ALE and Gym libraries.
-atari-py==0.2.6
-gym==0.13.1
+atari-py==0.2.9
+gym==0.19.0
 
-# Base dependencies.
-absl-py==0.9.0
-numpy==1.18.0
-Pillow==7.1.2
-python-snappy==0.5.4
+# Other explicit dependencies.
+absl-py==1.1.0
+numpy==1.21.5
+Pillow==8.3.1
+python-snappy==0.6.1
 
 # Transitive dependencies.
-asn1crypto==0.24.0
-cloudpickle==1.2.2
-cryptography==2.1.4
-dataclasses==0.7
-future==0.18.2
-idna==2.6
-keyring==10.6.0
-keyrings.alt==3.0
-opt-einsum==3.2.1
-pycrypto==2.6.1
-pyglet==1.3.2
-pygobject==3.26.1
-pyxdg==0.25
-scipy==1.2.1
-SecretStorage==2.3.1
-six==1.15.0
-toolz==0.11.1
+cloudpickle==1.6.0
+decorator==5.1.1
+flatbuffers==2.0
+gast==0.5.3
+jmp==0.0.2
+opt-einsum==3.3.0
+scipy==1.8.1
+six==1.16.0
+tabulate==0.8.10
+tensorflow-probability==0.17.0
+toolz==0.11.2
+typing_extensions==4.2.0

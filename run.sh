@@ -21,10 +21,10 @@
 # 3. Starts a short run of DQN on Pong in a GPU-accelerated container.
 
 # Before running:
-# * Install docker-ce version 19.03 or later for the --gpus options.
-# * Install nvidia-docker.
+# * Install Docker version 19.03 or later for the --gpus options.
+# * Install NVIDIA Container Toolkit.
 # * Enable sudoless docker.
-# * Verify: `docker run --gpus all --rm nvidia/cuda:10.1-base nvidia-smi`.
+# * Verify with: `docker run --gpus all --rm nvidia/cuda:11.1-base nvidia-smi`.
 
 # To remove all containers run:
 # `docker rm -vf $(docker ps -a -q)`
@@ -41,6 +41,7 @@ echo "Working directory: $WORK_DIR"
 function clean_up() {
   echo "Removing $WORK_DIR"
   rm -rf "$WORK_DIR"
+  echo "Removed $WORK_DIR"
 }
 
 # Clean up on exit.

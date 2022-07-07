@@ -41,15 +41,24 @@ GPU with recent CUDA drivers.
 
 1.  Install [Docker](http://docs.docker.com/) version 19.03 or later (for the
     `--gpus` flag).
-1.  Install [NVIDIA Docker](http://github.com/NVIDIA/nvidia-docker).
+1.  Install [NVIDIA Container Toolkit](http://github.com/NVIDIA/nvidia-docker).
 1.  Enable
-    [sudoless docker](http://docs.docker.com/engine/install/linux-postinstall/).
+    [sudoless docker](http://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
+
 1.  Verify the previous steps were successful by running: \
-    `docker run --gpus all --rm nvidia/cuda:10.1-base nvidia-smi`
-1.  Download and run the script [`run.sh`](run.sh). This script will:
-    1.  Clone the DQN Zoo repository.
-    1.  Build a Docker image with all necessary dependencies and run unit tests.
-    1.  Start a short run of DQN on Pong in a GPU-accelerated container.
+    `docker run --gpus all --rm nvidia/cuda:11.1-base nvidia-smi`
+
+1.  Download the script [`run.sh`](run.sh). This automatically downloads the
+    Atari ROMs from http://www.atarimania.com. The ROMs are available here for
+    free but make sure the respective license covers your particular use case.
+
+Running this script will:
+
+```
+1.  Clone the DQN Zoo repository.
+1.  Build a Docker image with all necessary dependencies and run unit tests.
+1.  Start a short run of DQN on Pong in a GPU-accelerated container.
+```
 
 <!-- mdlint on -->
 
