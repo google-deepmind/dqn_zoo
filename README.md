@@ -31,7 +31,7 @@ Plot of median human-normalized score over all 57 Atari games for each agent:
 
 ## Quick start
 
-NOTE: Only Python 3.6 and above and Linux is supported.
+NOTE: Only Python 3.9 and above and Linux is supported.
 
 Follow these steps to quickly clone the DQN Zoo repository, install all required
 dependencies and start running DQN. Prerequisites for these steps are a NVIDIA
