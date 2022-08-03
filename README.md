@@ -260,7 +260,7 @@ agents used and this repository:
   title = {{DQN} {Zoo}: Reference implementations of {DQN}-based agents},
   author = {John Quan and Georg Ostrovski},
   url = {http://github.com/deepmind/dqn_zoo},
-  version = {1.0.0},
+  version = {1.2.0},
   year = {2020},
 }
 ```
