@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Double DQN (tuned) agent class."""
 
 # pylint: disable=g-bad-import-order
@@ -66,8 +67,9 @@ class DoubleDqn(parts.Agent):
 
     # Initialize network parameters and optimizer.
     self._rng_key, network_rng_key = jax.random.split(rng_key)
-    self._online_params = network.init(network_rng_key,
-                                       sample_network_input[None, ...])
+    self._online_params = network.init(
+        network_rng_key, sample_network_input[None, ...]
+    )
     self._target_params = self._online_params
     self._opt_state = optimizer.init(self._online_params)
 
@@ -83,12 +85,15 @@ class DoubleDqn(parts.Agent):
     def loss_fn(online_params, target_params, transitions, rng_key):
       """Calculates loss given network parameters and transitions."""
       _, *apply_keys = jax.random.split(rng_key, 4)
-      q_tm1 = network.apply(online_params, apply_keys[0],
-                            transitions.s_tm1).q_values
-      q_t = network.apply(online_params, apply_keys[1],
-                          transitions.s_t).q_values
-      q_target_t = network.apply(target_params, apply_keys[2],
-                                 transitions.s_t).q_values
+      q_tm1 = network.apply(
+          online_params, apply_keys[0], transitions.s_tm1
+      ).q_values
+      q_t = network.apply(
+          online_params, apply_keys[1], transitions.s_t
+      ).q_values
+      q_target_t = network.apply(
+          target_params, apply_keys[2], transitions.s_t
+      ).q_values
       td_errors = _batch_double_q_learning(
           q_tm1,
           transitions.a_tm1,
@@ -97,8 +102,9 @@ class DoubleDqn(parts.Agent):
           q_target_t,
           q_t,
       )
-      td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
-                                     grad_error_bound)
+      td_errors = rlax.clip_gradient(
+          td_errors, -grad_error_bound, grad_error_bound
+      )
       losses = rlax.l2_loss(td_errors)
       chex.assert_shape(losses, (self._batch_size,))
       loss = jnp.mean(losses)
@@ -107,8 +113,9 @@ class DoubleDqn(parts.Agent):
     def update(rng_key, opt_state, online_params, target_params, transitions):
       """Computes learning update from batch of replay transitions."""
       rng_key, update_key = jax.random.split(rng_key)
-      d_loss_d_params = jax.grad(loss_fn)(online_params, target_params,
-                                          transitions, update_key)
+      d_loss_d_params = jax.grad(loss_fn)(
+          online_params, target_params, transitions, update_key
+      )
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
       new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params
@@ -119,8 +126,9 @@ class DoubleDqn(parts.Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, apply_key, policy_key = jax.random.split(rng_key, 3)
       q_t = network.apply(network_params, apply_key, s_t[None, ...]).q_values[0]
-      a_t = distrax.EpsilonGreedy(q_t,
-                                  exploration_epsilon).sample(seed=policy_key)
+      a_t = distrax.EpsilonGreedy(q_t, exploration_epsilon).sample(
+          seed=policy_key
+      )
       v_t = jnp.max(q_t, axis=-1)
       return rng_key, a_t, v_t
 
@@ -163,9 +171,9 @@ class DoubleDqn(parts.Agent):
   def _act(self, timestep) -> parts.Action:
     """Selects action given timestep, according to epsilon-greedy policy."""
     s_t = timestep.observation
-    self._rng_key, a_t, v_t = self._select_action(self._rng_key,
-                                                  self._online_params, s_t,
-                                                  self.exploration_epsilon)
+    self._rng_key, a_t, v_t = self._select_action(
+        self._rng_key, self._online_params, s_t, self.exploration_epsilon
+    )
     a_t, v_t = jax.device_get((a_t, v_t))
     self._statistics['state_value'] = v_t
     return parts.Action(a_t)
@@ -192,7 +200,8 @@ class DoubleDqn(parts.Agent):
     """Returns current agent statistics as a dictionary."""
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
-        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values())
+        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values()
+    )
     return self._statistics
 
   @property

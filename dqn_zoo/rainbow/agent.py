@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Rainbow agent classes."""
 
 # pylint: disable=g-bad-import-order
@@ -33,7 +34,8 @@ from dqn_zoo import replay as replay_lib
 
 # Batch variant of categorical_double_q_learning with fixed atoms across batch.
 _batch_categorical_double_q_learning = jax.vmap(
-    rlax.categorical_double_q_learning, in_axes=(None, 0, 0, 0, 0, None, 0, 0))
+    rlax.categorical_double_q_learning, in_axes=(None, 0, 0, 0, 0, None, 0, 0)
+)
 
 
 class Rainbow(parts.Agent):
@@ -64,8 +66,9 @@ class Rainbow(parts.Agent):
 
     # Initialize network parameters and optimizer.
     self._rng_key, network_rng_key = jax.random.split(rng_key)
-    self._online_params = network.init(network_rng_key,
-                                       sample_network_input[None, ...])
+    self._online_params = network.init(
+        network_rng_key, sample_network_input[None, ...]
+    )
     self._target_params = self._online_params
     self._opt_state = optimizer.init(self._online_params)
 
@@ -73,7 +76,7 @@ class Rainbow(parts.Agent):
     self._action = None
     self._frame_t = -1  # Current frame index.
     self._statistics = {'state_value': np.nan}
-    self._max_seen_priority = 1.
+    self._max_seen_priority = 1.0
 
     # Define jitted loss, update, and policy functions here instead of as
     # class methods, to emphasize that these are meant to be pure functions
@@ -82,12 +85,15 @@ class Rainbow(parts.Agent):
     def loss_fn(online_params, target_params, transitions, weights, rng_key):
       """Calculates loss given network parameters and transitions."""
       _, *apply_keys = jax.random.split(rng_key, 4)
-      logits_q_tm1 = network.apply(online_params, apply_keys[0],
-                                   transitions.s_tm1).q_logits
-      q_t = network.apply(online_params, apply_keys[1],
-                          transitions.s_t).q_values
-      logits_q_target_t = network.apply(target_params, apply_keys[2],
-                                        transitions.s_t).q_logits
+      logits_q_tm1 = network.apply(
+          online_params, apply_keys[0], transitions.s_tm1
+      ).q_logits
+      q_t = network.apply(
+          online_params, apply_keys[1], transitions.s_t
+      ).q_values
+      logits_q_target_t = network.apply(
+          target_params, apply_keys[2], transitions.s_t
+      ).q_logits
       losses = _batch_categorical_double_q_learning(
           support,
           logits_q_tm1,
@@ -102,13 +108,14 @@ class Rainbow(parts.Agent):
       chex.assert_shape((losses, weights), (self._batch_size,))
       return loss, losses
 
-    def update(rng_key, opt_state, online_params, target_params, transitions,
-               weights):
+    def update(
+        rng_key, opt_state, online_params, target_params, transitions, weights
+    ):
       """Computes learning update from batch of replay transitions."""
       rng_key, update_key = jax.random.split(rng_key)
-      d_loss_d_params, losses = jax.grad(
-          loss_fn, has_aux=True)(online_params, target_params, transitions,
-                                 weights, update_key)
+      d_loss_d_params, losses = jax.grad(loss_fn, has_aux=True)(
+          online_params, target_params, transitions, weights, update_key
+      )
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
       new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params, losses
@@ -162,8 +169,9 @@ class Rainbow(parts.Agent):
   def _act(self, timestep) -> parts.Action:
     """Selects action given timestep, according to greedy policy."""
     s_t = timestep.observation
-    self._rng_key, a_t, v_t = self._select_action(self._rng_key,
-                                                  self._online_params, s_t)
+    self._rng_key, a_t, v_t = self._select_action(
+        self._rng_key, self._online_params, s_t
+    )
     a_t, v_t = jax.device_get((a_t, v_t))
     self._statistics['state_value'] = v_t
     return parts.Action(a_t)
@@ -181,7 +189,7 @@ class Rainbow(parts.Agent):
         weights,
     )
     chex.assert_equal_shape((losses, weights))
-    priorities = jnp.clip(jnp.abs(losses), 0., 100.)
+    priorities = jnp.clip(jnp.abs(losses), 0.0, 100.0)
     priorities = jax.device_get(priorities)
     max_priority = priorities.max()
     self._max_seen_priority = np.max([self._max_seen_priority, max_priority])
@@ -197,7 +205,8 @@ class Rainbow(parts.Agent):
     """Returns current agent statistics as a dictionary."""
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
-        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values())
+        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values()
+    )
     return self._statistics
 
   @property

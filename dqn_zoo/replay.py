@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Replay components for DQN-type agents."""
 
 # pylint: disable=g-bad-import-order
@@ -75,9 +76,9 @@ class UniformDistribution:
   def sample(self, size: int) -> np.ndarray:
     """Returns sample of IDs, uniformly sampled."""
     indices = self._random_state.randint(self.size, size=size)
-    ids = np.fromiter((self._ids[idx] for idx in indices),
-                      dtype=np.int64,
-                      count=len(indices))
+    ids = np.fromiter(
+        (self._ids[idx] for idx in indices), dtype=np.int64, count=len(indices)
+    )
     return ids
 
   def ids(self) -> Iterable[int]:
@@ -119,12 +120,14 @@ class UniformDistribution:
 class TransitionReplay(Generic[ReplayStructure]):
   """Uniform replay, with LIFO storage for flat named tuples."""
 
-  def __init__(self,
-               capacity: int,
-               structure: ReplayStructure,
-               random_state: np.random.RandomState,
-               encoder: Optional[Callable[[ReplayStructure], Any]] = None,
-               decoder: Optional[Callable[[Any], ReplayStructure]] = None):
+  def __init__(
+      self,
+      capacity: int,
+      structure: ReplayStructure,
+      random_state: np.random.RandomState,
+      encoder: Optional[Callable[[ReplayStructure], Any]] = None,
+      decoder: Optional[Callable[[Any], ReplayStructure]] = None,
+  ):
     self._capacity = capacity
     self._structure = structure
     self._random_state = random_state
@@ -202,7 +205,7 @@ def _power(base, exponent) -> np.ndarray:
   # By default 0 ** 0 is 1 but we never want indices with priority zero to be
   # sampled, even if the priority exponent is zero.
   base = np.asarray(base)
-  return np.where(base == 0., 0., base**exponent)
+  return np.where(base == 0.0, 0.0, base**exponent)
 
 
 def importance_sampling_weights(
@@ -227,12 +230,12 @@ def importance_sampling_weights(
     Importance sampling weights that can be used to scale the loss. These have
     the same shape as `probabilities`.
   """
-  if not 0. <= exponent <= 1.:
+  if not 0.0 <= exponent <= 1.0:
     raise ValueError('Require 0 <= exponent <= 1.')
-  if not 0. <= uniform_probability <= 1.:
+  if not 0.0 <= uniform_probability <= 1.0:
     raise ValueError('Expected 0 <= uniform_probability <= 1.')
 
-  weights = (uniform_probability / probabilities)**exponent
+  weights = (uniform_probability / probabilities) ** exponent
   if normalize:
     weights /= np.max(weights)
   if not np.isfinite(weights).all():
@@ -275,7 +278,7 @@ class SumTree:
   def set(self, indices: Sequence[int], values: Sequence[float]) -> None:
     """Sets values at the given indices."""
     values = np.asarray(values)
-    if not np.isfinite(values).all() or (values < 0.).any():
+    if not np.isfinite(values).all() or (values < 0.0).any():
       raise ValueError('value must be finite and positive.')
     self.values[indices] = values
     storage = self._storage
@@ -289,7 +292,7 @@ class SumTree:
   def set_all(self, values: Sequence[float]) -> None:
     """Sets many values all at once, also setting size of the sum tree."""
     values = np.asarray(values)
-    if not np.isfinite(values).all() or (values < 0.).any():
+    if not np.isfinite(values).all() or (values < 0.0).any():
       raise ValueError('Values must be finite positive numbers.')
     self._initialize(len(values), values)
 
@@ -316,7 +319,7 @@ class SumTree:
   @property
   def values(self) -> np.ndarray:
     """View of array containing all (leaf) values in the sum tree."""
-    return self._storage[self._first_leaf:self._first_leaf + self.size]
+    return self._storage[self._first_leaf : self._first_leaf + self.size]
 
   @property
   def size(self) -> int:
@@ -394,15 +397,15 @@ class SumTree:
     # Note every part of the storage is set here.
     assert len(values) <= self.capacity
     storage = self._storage
-    storage[self._first_leaf:self._first_leaf + len(values)] = values
-    storage[self._first_leaf + len(values):] = 0
+    storage[self._first_leaf : self._first_leaf + len(values)] = values
+    storage[self._first_leaf + len(values) :] = 0
     for i in range(self._first_leaf - 1, 0, -1):
       storage[i] = storage[2 * i] + storage[2 * i + 1]
-    storage[0] = 0.  # Unused.
+    storage[0] = 0.0  # Unused.
 
   def _query_single(self, target: float) -> int:
     """Queries a single target, see query for more detailed documentation."""
-    if not 0. <= target < self.root():
+    if not 0.0 <= target < self.root():
       raise ValueError('Require 0 <= target < total sum.')
 
     storage = self._storage
@@ -434,10 +437,10 @@ class PrioritizedDistribution:
       min_capacity: int = 0,
       max_capacity: Optional[int] = None,
   ):
-    if priority_exponent < 0.:
+    if priority_exponent < 0.0:
       raise ValueError('Require priority_exponent >= 0.')
     self._priority_exponent = priority_exponent
-    if not 0. <= uniform_sample_probability <= 1.:
+    if not 0.0 <= uniform_sample_probability <= 1.0:
       raise ValueError('Require 0 <= uniform_sample_probability <= 1.')
     if max_capacity is not None and max_capacity < min_capacity:
       raise ValueError('Require max_capacity >= min_capacity.')
@@ -460,15 +463,18 @@ class PrioritizedDistribution:
   def ensure_capacity(self, capacity: int) -> None:
     """Ensures sufficient capacity, a no-op if capacity is already enough."""
     if self._max_capacity is not None and capacity > self._max_capacity:
-      raise ValueError('capacity %d cannot exceed max_capacity %d' %
-                       (capacity, self._max_capacity))
+      raise ValueError(
+          'capacity %d cannot exceed max_capacity %d'
+          % (capacity, self._max_capacity)
+      )
     if capacity <= self._sum_tree.size:
       return  # There is already sufficient capacity.
     self._inactive_indices.extend(range(self._sum_tree.size, capacity))
     self._sum_tree.resize(capacity)
 
-  def add_priorities(self, ids: Sequence[int],
-                     priorities: Sequence[float]) -> None:
+  def add_priorities(
+      self, ids: Sequence[int], priorities: Sequence[float]
+  ) -> None:
     """Add priorities for new IDs."""
     for i in ids:
       if i in self._id_to_index:
@@ -516,7 +522,9 @@ class PrioritizedDistribution:
       # Swap index to be removed with index at the end.
       j = self._active_indices_location[idx]
       self._active_indices[j], self._active_indices[-1] = (
-          self._active_indices[-1], self._active_indices[j])
+          self._active_indices[-1],
+          self._active_indices[j],
+      )
       # Update location for the swapped index.
       self._active_indices_location[self._active_indices[j]] = j
       # Remove index from data structures.
@@ -525,8 +533,9 @@ class PrioritizedDistribution:
     self._inactive_indices.extend(indices)
     self._sum_tree.set(indices, np.zeros((len(indices),), dtype=np.float64))
 
-  def update_priorities(self, ids: Sequence[int],
-                        priorities: Sequence[float]) -> None:
+  def update_priorities(
+      self, ids: Sequence[int], priorities: Sequence[float]
+  ) -> None:
     """Updates priorities for existing IDs."""
     indices = []
     for i in ids:
@@ -544,7 +553,7 @@ class PrioritizedDistribution:
         for j in self._random_state.randint(self.size, size=size)
     ]
 
-    if self._sum_tree.root() == 0.:
+    if self._sum_tree.root() == 0.0:
       prioritized_indices = uniform_indices
     else:
       targets = self._random_state.uniform(size=size) * self._sum_tree.root()
@@ -552,28 +561,32 @@ class PrioritizedDistribution:
 
     usp = self._uniform_sample_probability
     indices = np.where(
-        self._random_state.uniform(size=size) < usp, uniform_indices,
-        prioritized_indices)
+        self._random_state.uniform(size=size) < usp,
+        uniform_indices,
+        prioritized_indices,
+    )
 
-    uniform_prob = np.asarray(1. / self.size)  # np.asarray is for pytype.
+    uniform_prob = np.asarray(1.0 / self.size)  # np.asarray is for pytype.
     priorities = self._sum_tree.get(indices)
 
-    if self._sum_tree.root() == 0.:
+    if self._sum_tree.root() == 0.0:
       prioritized_probs = np.full_like(priorities, fill_value=uniform_prob)
     else:
       prioritized_probs = priorities / self._sum_tree.root()
 
-    sample_probs = (1. - usp) * prioritized_probs + usp * uniform_prob
-    ids = np.fromiter((self._index_to_id[idx] for idx in indices),
-                      dtype=np.int64,
-                      count=len(indices))
+    sample_probs = (1.0 - usp) * prioritized_probs + usp * uniform_prob
+    ids = np.fromiter(
+        (self._index_to_id[idx] for idx in indices),
+        dtype=np.int64,
+        count=len(indices),
+    )
     return ids, sample_probs
 
   def get_exponentiated_priorities(self, ids: Sequence[int]) -> Sequence[float]:
     """Returns priority ** priority_exponent for the given indices."""
-    indices = np.fromiter((self._id_to_index[i] for i in ids),
-                          dtype=np.int64,
-                          count=len(ids))
+    indices = np.fromiter(
+        (self._id_to_index[i] for i in ids), dtype=np.int64, count=len(ids)
+    )
     return self._sum_tree.get(indices)
 
   def ids(self) -> Iterable[int]:
@@ -631,8 +644,10 @@ class PrioritizedDistribution:
       return False, 'Active indices and their location should be the same size.'
     for j, i in enumerate(self._active_indices):
       if j != self._active_indices_location[i]:
-        return False, ('Active index location %d not correct for index %d.' %
-                       (j, i))
+        return False, 'Active index location %d not correct for index %d.' % (
+            j,
+            i,
+        )
 
     return self._sum_tree.check_valid()
 
@@ -666,7 +681,8 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
         max_capacity=capacity,
         priority_exponent=priority_exponent,
         uniform_sample_probability=uniform_sample_probability,
-        random_state=random_state)
+        random_state=random_state,
+    )
     self._importance_sampling_exponent = importance_sampling_exponent
     self._normalize_weights = normalize_weights
     self._storage = collections.OrderedDict()  # ID -> item.
@@ -696,9 +712,10 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
     ids, probabilities = self._distribution.sample(size)
     weights = importance_sampling_weights(
         probabilities,
-        uniform_probability=1. / self.size,
+        uniform_probability=1.0 / self.size,
         exponent=self.importance_sampling_exponent,
-        normalize=self._normalize_weights)
+        normalize=self._normalize_weights,
+    )
     samples = self.get(ids)
     transposed = zip(*samples)
     stacked = [np.stack(xs, axis=0) for xs in transposed]
@@ -706,8 +723,9 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
     return type(self._structure)(*stacked), ids, weights
     # pytype: enable=not-callable
 
-  def update_priorities(self, ids: Sequence[int],
-                        priorities: Sequence[float]) -> None:
+  def update_priorities(
+      self, ids: Sequence[int], priorities: Sequence[float]
+  ) -> None:
     """Updates IDs with given priorities."""
     priorities = np.asarray(priorities)
     self._distribution.update_priorities(ids, priorities)
@@ -757,8 +775,9 @@ class TransitionAccumulator:
   def __init__(self):
     self.reset()
 
-  def step(self, timestep_t: dm_env.TimeStep,
-           a_t: parts.Action) -> Iterable[Transition]:
+  def step(
+      self, timestep_t: dm_env.TimeStep, a_t: parts.Action
+  ) -> Iterable[Transition]:
     """Accumulates timestep and resulting action, maybe yield a transition."""
     if timestep_t.first():
       self.reset()
@@ -789,8 +808,8 @@ class TransitionAccumulator:
 
 def _build_n_step_transition(transitions):
   """Builds a single n-step transition from n 1-step transitions."""
-  r_t = 0.
-  discount_t = 1.
+  r_t = 0.0
+  discount_t = 1.0
   for transition in transitions:
     r_t += discount_t * transition.r_t
     discount_t *= transition.discount_t
@@ -823,8 +842,9 @@ class NStepTransitionAccumulator:
     self._transitions = collections.deque(maxlen=n)  # Store 1-step transitions.
     self.reset()
 
-  def step(self, timestep_t: dm_env.TimeStep,
-           a_t: parts.Action) -> Iterable[Transition]:
+  def step(
+      self, timestep_t: dm_env.TimeStep, a_t: parts.Action
+  ) -> Iterable[Transition]:
     """Accumulates timestep and resulting action, yields transitions."""
     if timestep_t.first():
       self.reset()
@@ -845,7 +865,8 @@ class NStepTransitionAccumulator:
             r_t=timestep_t.reward,
             discount_t=timestep_t.discount,
             s_t=timestep_t.observation,
-        ))
+        )
+    )
 
     self._timestep_tm1 = timestep_t
     self._a_tm1 = a_t

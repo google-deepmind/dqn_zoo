@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """dm_env environment wrapper around Gym Atari configured to be like Xitari.
 
 Gym Atari is built on the Arcade Learning Environment (ALE), whereas Xitari is
@@ -92,10 +93,10 @@ class GymAtari(dm_env.Environment):
       if done:
         assert 'TimeLimit.truncated' not in info, 'Should never truncate.'
         step_type = dm_env.StepType.LAST
-        discount = 0.
+        discount = 0.0
       else:
         step_type = dm_env.StepType.MID
-        discount = 1.
+        discount = 1.0
 
     lives = np.int32(self._gym_env.ale.lives())
     timestep = dm_env.TimeStep(
@@ -109,13 +110,16 @@ class GymAtari(dm_env.Environment):
 
   def observation_spec(self) -> Tuple[specs.Array, specs.Array]:
     space = self._gym_env.observation_space
-    return (specs.Array(shape=space.shape, dtype=space.dtype, name='rgb'),
-            specs.Array(shape=(), dtype=np.int32, name='lives'))
+    return (
+        specs.Array(shape=space.shape, dtype=space.dtype, name='rgb'),
+        specs.Array(shape=(), dtype=np.int32, name='lives'),
+    )
 
   def action_spec(self) -> specs.DiscreteArray:
     space = self._gym_env.action_space
     return specs.DiscreteArray(
-        num_values=space.n, dtype=np.int32, name='action')
+        num_values=space.n, dtype=np.int32, name='action'
+    )
 
   def close(self):
     self._gym_env.close()
@@ -124,12 +128,14 @@ class GymAtari(dm_env.Environment):
 class RandomNoopsEnvironmentWrapper(dm_env.Environment):
   """Adds a random number of noop actions at the beginning of each episode."""
 
-  def __init__(self,
-               environment: dm_env.Environment,
-               max_noop_steps: int,
-               min_noop_steps: int = 0,
-               noop_action: int = 0,
-               seed: Optional[int] = None):
+  def __init__(
+      self,
+      environment: dm_env.Environment,
+      max_noop_steps: int,
+      min_noop_steps: int = 0,
+      noop_action: int = 0,
+      seed: Optional[int] = None,
+  ):
     """Initializes the random noops environment wrapper."""
     self._environment = environment
     if max_noop_steps < min_noop_steps:
@@ -178,14 +184,16 @@ class RandomNoopsEnvironmentWrapper(dm_env.Environment):
 
   def _apply_random_noops(self, initial_timestep):
     assert initial_timestep.first()
-    num_steps = self._rng.randint(self._min_noop_steps,
-                                  self._max_noop_steps + 1)
+    num_steps = self._rng.randint(
+        self._min_noop_steps, self._max_noop_steps + 1
+    )
     timestep = initial_timestep
     for _ in range(num_steps):
       timestep = self._environment.step(self._noop_action)
       if timestep.last():
-        raise RuntimeError('Episode ended while applying %s noop actions.' %
-                           num_steps)
+        raise RuntimeError(
+            'Episode ended while applying %s noop actions.' % num_steps
+        )
 
     # We make sure to return a FIRST timestep, i.e. discard rewards & discounts.
     return dm_env.restart(timestep.observation)

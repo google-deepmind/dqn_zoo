@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Tests for atari_data."""
 
 # pylint: disable=g-bad-import-order
@@ -33,12 +34,12 @@ class AtariDataTest(absltest.TestCase):
     #  a) all game data is present
     #  b) human score > random score for each game.
     for game in atari_data.ATARI_GAMES:
-      low_score = atari_data.get_human_normalized_score(game, 10.)
-      high_score = atari_data.get_human_normalized_score(game, 1000.)
+      low_score = atari_data.get_human_normalized_score(game, 10.0)
+      high_score = atari_data.get_human_normalized_score(game, 1000.0)
       self.assertGreater(high_score, low_score)
 
   def test_returns_nan_for_unknown_games(self):
-    score = atari_data.get_human_normalized_score('unknown_game', 10.)
+    score = atari_data.get_human_normalized_score('unknown_game', 10.0)
     self.assertTrue(math.isnan(score))
 
 

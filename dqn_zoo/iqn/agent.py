@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """IQN agent classes."""
 
 # pylint: disable=g-bad-import-order
@@ -35,7 +36,8 @@ from dqn_zoo import replay as replay_lib
 
 # Batch variant of quantile_q_learning.
 _batch_quantile_q_learning = jax.vmap(
-    rlax.quantile_q_learning, in_axes=(0, 0, 0, 0, 0, 0, 0, None))
+    rlax.quantile_q_learning, in_axes=(0, 0, 0, 0, 0, 0, 0, None)
+)
 
 IqnInputs = networks.IqnInputs
 
@@ -72,10 +74,12 @@ class IqnEpsilonGreedyActor(parts.Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, tau_key, apply_key, policy_key = jax.random.split(rng_key, 4)
       tau_t = _sample_tau(tau_key, (1, tau_samples))
-      q_t = network.apply(network_params, apply_key,
-                          IqnInputs(s_t[None, ...], tau_t)).q_values[0]
-      a_t = distrax.EpsilonGreedy(q_t,
-                                  exploration_epsilon).sample(seed=policy_key)
+      q_t = network.apply(
+          network_params, apply_key, IqnInputs(s_t[None, ...], tau_t)
+      ).q_values[0]
+      a_t = distrax.EpsilonGreedy(q_t, exploration_epsilon).sample(
+          seed=policy_key
+      )
       return rng_key, a_t
 
     self._select_action = jax.jit(select_action)
@@ -88,8 +92,9 @@ class IqnEpsilonGreedyActor(parts.Agent):
       return self._action
 
     s_t = timestep.observation
-    self._rng_key, a_t = self._select_action(self._rng_key, self.network_params,
-                                             s_t)
+    self._rng_key, a_t = self._select_action(
+        self._rng_key, self.network_params, s_t
+    )
     self._action = parts.Action(jax.device_get(a_t))
     return self._action
 
@@ -154,7 +159,8 @@ class Iqn(parts.Agent):
     self._rng_key, network_rng_key = jax.random.split(rng_key)
     self._online_params = network.init(
         network_rng_key,
-        jax.tree_map(lambda x: x[None, ...], sample_network_input))
+        jax.tree_map(lambda x: x[None, ...], sample_network_input),
+    )
     self._target_params = self._online_params
     self._opt_state = optimizer.init(self._online_params)
 
@@ -173,19 +179,24 @@ class Iqn(parts.Agent):
       batch_size = self._batch_size
       rng_key, *sample_keys = jax.random.split(rng_key, 4)
       tau_tm1 = _sample_tau(sample_keys[0], (batch_size, tau_samples_s_tm1))
-      tau_t_selector = _sample_tau(sample_keys[1],
-                                   (batch_size, tau_samples_policy))
+      tau_t_selector = _sample_tau(
+          sample_keys[1], (batch_size, tau_samples_policy)
+      )
       tau_t = _sample_tau(sample_keys[2], (batch_size, tau_samples_s_t))
 
       # Compute Q value distributions.
       _, *apply_keys = jax.random.split(rng_key, 4)
-      dist_q_tm1 = network.apply(online_params, apply_keys[0],
-                                 IqnInputs(transitions.s_tm1, tau_tm1)).q_dist
+      dist_q_tm1 = network.apply(
+          online_params, apply_keys[0], IqnInputs(transitions.s_tm1, tau_tm1)
+      ).q_dist
       dist_q_t_selector = network.apply(
-          target_params, apply_keys[1],
-          IqnInputs(transitions.s_t, tau_t_selector)).q_dist
-      dist_q_target_t = network.apply(target_params, apply_keys[2],
-                                      IqnInputs(transitions.s_t, tau_t)).q_dist
+          target_params,
+          apply_keys[1],
+          IqnInputs(transitions.s_t, tau_t_selector),
+      ).q_dist
+      dist_q_target_t = network.apply(
+          target_params, apply_keys[2], IqnInputs(transitions.s_t, tau_t)
+      ).q_dist
       losses = _batch_quantile_q_learning(
           dist_q_tm1,
           tau_tm1,
@@ -203,8 +214,9 @@ class Iqn(parts.Agent):
     def update(rng_key, opt_state, online_params, target_params, transitions):
       """Computes learning update from batch of replay transitions."""
       rng_key, update_key = jax.random.split(rng_key)
-      d_loss_d_params = jax.grad(loss_fn)(online_params, target_params,
-                                          transitions, update_key)
+      d_loss_d_params = jax.grad(loss_fn)(
+          online_params, target_params, transitions, update_key
+      )
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
       new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params
@@ -215,10 +227,12 @@ class Iqn(parts.Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, sample_key, apply_key, policy_key = jax.random.split(rng_key, 4)
       tau_t = _sample_tau(sample_key, (1, tau_samples_policy))
-      q_t = network.apply(network_params, apply_key,
-                          IqnInputs(s_t[None, ...], tau_t)).q_values[0]
-      a_t = distrax.EpsilonGreedy(q_t,
-                                  exploration_epsilon).sample(seed=policy_key)
+      q_t = network.apply(
+          network_params, apply_key, IqnInputs(s_t[None, ...], tau_t)
+      ).q_values[0]
+      a_t = distrax.EpsilonGreedy(q_t, exploration_epsilon).sample(
+          seed=policy_key
+      )
       v_t = jnp.max(q_t, axis=-1)
       return rng_key, a_t, v_t
 
@@ -261,9 +275,9 @@ class Iqn(parts.Agent):
   def _act(self, timestep) -> parts.Action:
     """Selects action given timestep, according to epsilon-greedy policy."""
     s_t = timestep.observation
-    self._rng_key, a_t, v_t = self._select_action(self._rng_key,
-                                                  self._online_params, s_t,
-                                                  self.exploration_epsilon)
+    self._rng_key, a_t, v_t = self._select_action(
+        self._rng_key, self._online_params, s_t, self.exploration_epsilon
+    )
     a_t, v_t = jax.device_get((a_t, v_t))
     self._statistics['state_value'] = v_t
     return parts.Action(a_t)
@@ -289,7 +303,8 @@ class Iqn(parts.Agent):
   def statistics(self) -> Mapping[Text, float]:
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
-        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values())
+        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values()
+    )
     return self._statistics
 
   @property

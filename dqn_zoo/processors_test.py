@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Tests for processors."""
 
 # pylint: disable=g-bad-import-order
@@ -57,13 +58,13 @@ class FixedPaddedBufferTest(absltest.TestCase):
 
 
 def make_timesteps_from_step_types(step_types):
-
   def make_timestep(step_type):
     return dm_env.TimeStep(
         step_type=step_type,
         observation=0,
         reward=None if step_type == dm_env.StepType.FIRST else 0,
-        discount=None if step_type == dm_env.StepType.FIRST else 0)
+        discount=None if step_type == dm_env.StepType.FIRST else 0,
+    )
 
   return [make_timestep(st) for st in step_types]
 
@@ -145,12 +146,14 @@ class ActionRepeatsTest(absltest.TestCase):
     self.processor = processors.Sequential(
         processors.FixedPaddedBuffer(length=num_repeats, initial_index=-1),
         processors.ConditionallySubsample(
-            processors.TimestepBufferCondition(period=num_repeats)),
+            processors.TimestepBufferCondition(period=num_repeats)
+        ),
         processors.Maybe(
             processors.Sequential(
                 processors.none_to_zero_pad,
                 processors.named_tuple_sequence_stack,
-            ),),
+            ),
+        ),
     )
 
   def test_basic(self):
@@ -240,11 +243,13 @@ class ZeroDiscountOnLifeLossTest(parameterized.TestCase):
       )
       output_timestep = processor(input_timestep)
 
-      self.assertEqual(step_type_map[expected_step_type],
-                       output_timestep.step_type)
+      self.assertEqual(
+          step_type_map[expected_step_type], output_timestep.step_type
+      )
       self.assertEqual(
           None if expected_discount == 'n' else float(expected_discount),
-          output_timestep.discount)
+          output_timestep.discount,
+      )
 
 
 class ReduceStepTypeTest(parameterized.TestCase):
@@ -258,7 +263,8 @@ class ReduceStepTypeTest(parameterized.TestCase):
   def test_valid_cases(self, step_types, expected_step_type):
     self.assertEqual(
         expected_step_type,
-        processors.reduce_step_type(np.asarray(step_types), debug=True))
+        processors.reduce_step_type(np.asarray(step_types), debug=True),
+    )
 
   @parameterized.parameters(
       ([0, 0, 0, M],),
@@ -286,13 +292,14 @@ class AggregateRewardsTest(parameterized.TestCase):
       ([1, -2, 3], 2),
   )
   def test_basic(self, rewards, expected):
-    self.assertEqual(expected,
-                     processors.aggregate_rewards(rewards, debug=True))
+    self.assertEqual(
+        expected, processors.aggregate_rewards(rewards, debug=True)
+    )
 
   @parameterized.parameters(
-      ([1., None],),
-      ([0., 1., None],),
-      ([1., 0., None],),
+      ([1.0, None],),
+      ([0.0, 1.0, None],),
+      ([1.0, 0.0, None],),
   )
   def test_error_raised_in_debug_with_none_and_no_zero_padding(self, rewards):
     with self.assertRaisesRegex(ValueError, 'None.*FIRST'):
@@ -313,13 +320,14 @@ class AggregateDiscountsTest(parameterized.TestCase):
       ([1, 1, 0], 0),
   )
   def test_basic(self, discounts, expected):
-    self.assertEqual(expected,
-                     processors.aggregate_discounts(discounts, debug=True))
+    self.assertEqual(
+        expected, processors.aggregate_discounts(discounts, debug=True)
+    )
 
   @parameterized.parameters(
-      ([1., None],),
-      ([0., 1., None],),
-      ([1., 0., None],),
+      ([1.0, None],),
+      ([0.0, 1.0, None],),
+      ([1.0, 0.0, None],),
   )
   def test_error_raised_in_debug_with_none_and_no_zero_padding(self, discounts):
     with self.assertRaisesRegex(ValueError, 'None.*FIRST'):
@@ -391,7 +399,8 @@ class AtariTest(absltest.TestCase):
       actions.append(action)
 
     self.assertEqual(
-        [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4], actions)
+        [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4], actions
+    )
 
   def test_default_on_fixed_input(self):
     """End-to-end test on fixed input.
@@ -407,7 +416,8 @@ class AtariTest(absltest.TestCase):
     # Generate timesteps with fixed data to feed into processor.
     def generate_rgb_obs():
       return random_state.randint(
-          0, 256, size=rgb_spec.shape, dtype=rgb_spec.dtype)
+          0, 256, size=rgb_spec.shape, dtype=rgb_spec.dtype
+      )
 
     step_types = [F, M, M, M, M]
     rewards = [None, 0.5, 0.2, 0, 0.1]
@@ -422,7 +432,9 @@ class AtariTest(absltest.TestCase):
               step_type=step_types[i],
               reward=rewards[i],
               discount=discounts[i],
-              observation=(rgb_obs[i], lives_obs[i])))
+              observation=(rgb_obs[i], lives_obs[i]),
+          )
+      )
 
     def hash_array(array):
       return hashlib.sha256(array).hexdigest()
@@ -450,7 +462,7 @@ class AtariTest(absltest.TestCase):
 
     # Compare with expected timestep, just the hash for the observation.
     self.assertEqual(dm_env.StepType.MID, processed.step_type)
-    self.assertAlmostEqual(0.5 + 0.2 + 0. + 0.1, processed.reward)
+    self.assertAlmostEqual(0.5 + 0.2 + 0.0 + 0.1, processed.reward)
     self.assertAlmostEqual(0.9**4 * 0.99, processed.discount)
     processed_obs_hash = hash_array(processed.observation.flatten())
 
@@ -459,7 +471,8 @@ class AtariTest(absltest.TestCase):
     # are intentional.
     self.assertEqual(
         '0d158a8f45aa09aa6fad0354d2eb1fc0e3f57add88e772f3b71f54819d8200aa',
-        processed_obs_hash)
+        processed_obs_hash,
+    )
 
 
 class AtariEnvironmentWrapperTest(parameterized.TestCase):
@@ -468,11 +481,13 @@ class AtariEnvironmentWrapperTest(parameterized.TestCase):
       ('grayscaling', True, 'grayscale', (84, 84, 4)),
       ('no_grayscaling', False, 'RGB', (84, 84, 3, 4)),
   )
-  def test_atari_grayscaling_observation_spec(self, grayscaling, expected_name,
-                                              expected_shape):
+  def test_atari_grayscaling_observation_spec(
+      self, grayscaling, expected_name, expected_shape
+  ):
     env = gym_atari.GymAtari('pong', seed=1)
     env = processors.AtariEnvironmentWrapper(
-        environment=env, grayscaling=grayscaling)
+        environment=env, grayscaling=grayscaling
+    )
     spec = env.observation_spec()
     self.assertEqual(spec.shape, expected_shape)
     self.assertEqual(spec.name, expected_name)
@@ -481,11 +496,13 @@ class AtariEnvironmentWrapperTest(parameterized.TestCase):
       ('grayscaling', True, (84, 84, 4)),
       ('no_grayscaling', False, (84, 84, 3, 4)),
   )
-  def test_atari_grayscaling_observation_shape(self, grayscaling,
-                                               expected_shape):
+  def test_atari_grayscaling_observation_shape(
+      self, grayscaling, expected_shape
+  ):
     env = gym_atari.GymAtari('pong', seed=1)
     env = processors.AtariEnvironmentWrapper(
-        environment=env, grayscaling=grayscaling)
+        environment=env, grayscaling=grayscaling
+    )
 
     timestep = env.reset()
     for _ in range(10):
@@ -494,8 +511,9 @@ class AtariEnvironmentWrapperTest(parameterized.TestCase):
       timestep = env.step(0)
 
 
-class AtariEnvironmentWrapperInterfaceTest(test_utils.EnvironmentTestMixin,
-                                           absltest.TestCase):
+class AtariEnvironmentWrapperInterfaceTest(
+    test_utils.EnvironmentTestMixin, absltest.TestCase
+):
 
   def make_object_under_test(self):
     env = gym_atari.GymAtari('pong', seed=1)

@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Common functions and classes for testing."""
 
 # pylint: disable=g-bad-import-order
+
 
 from absl import flags
 import dm_env
@@ -68,7 +70,8 @@ class DummyEnvironment(dm_env.Environment):
     self._tape.append('Environment reset')
     step_type = dm_env.StepType.FIRST
     return dm_env.TimeStep(
-        step_type=step_type, reward=0., discount=0., observation=1.)
+        step_type=step_type, reward=0.0, discount=0.0, observation=1.0
+    )
 
   def step(self, action):
     self._tape.append('Environment step (%s)' % action)
@@ -81,9 +84,10 @@ class DummyEnvironment(dm_env.Environment):
     else:
       step_type = dm_env.StepType.MID
 
-    discount = 0. if step_type == dm_env.StepType.LAST else 1.
+    discount = 0.0 if step_type == dm_env.StepType.LAST else 1.0
     return dm_env.TimeStep(
-        step_type=step_type, reward=2., discount=discount, observation=1.)
+        step_type=step_type, reward=2.0, discount=discount, observation=1.0
+    )
 
   def action_spec(self):
     return specs.Array(shape=(), dtype=int)

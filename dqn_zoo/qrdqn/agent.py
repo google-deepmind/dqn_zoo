@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """QR-DQN agent class."""
 
 # pylint: disable=g-bad-import-order
@@ -34,7 +35,8 @@ from dqn_zoo import replay as replay_lib
 
 # Batch variant of quantile_q_learning with fixed tau input across batch.
 _batch_quantile_q_learning = jax.vmap(
-    rlax.quantile_q_learning, in_axes=(0, None, 0, 0, 0, 0, 0, None))
+    rlax.quantile_q_learning, in_axes=(0, None, 0, 0, 0, 0, 0, None)
+)
 
 
 class QrDqn(parts.Agent):
@@ -68,8 +70,9 @@ class QrDqn(parts.Agent):
 
     # Initialize network parameters and optimizer.
     self._rng_key, network_rng_key = jax.random.split(rng_key)
-    self._online_params = network.init(network_rng_key,
-                                       sample_network_input[None, ...])
+    self._online_params = network.init(
+        network_rng_key, sample_network_input[None, ...]
+    )
     self._target_params = self._online_params
     self._opt_state = optimizer.init(self._online_params)
 
@@ -86,10 +89,12 @@ class QrDqn(parts.Agent):
       """Calculates loss given network parameters and transitions."""
       # Compute Q value distributions.
       _, online_key, target_key = jax.random.split(rng_key, 3)
-      dist_q_tm1 = network.apply(online_params, online_key,
-                                 transitions.s_tm1).q_dist
-      dist_q_target_t = network.apply(target_params, target_key,
-                                      transitions.s_t).q_dist
+      dist_q_tm1 = network.apply(
+          online_params, online_key, transitions.s_tm1
+      ).q_dist
+      dist_q_target_t = network.apply(
+          target_params, target_key, transitions.s_t
+      ).q_dist
       losses = _batch_quantile_q_learning(
           dist_q_tm1,
           quantiles,
@@ -107,8 +112,9 @@ class QrDqn(parts.Agent):
     def update(rng_key, opt_state, online_params, target_params, transitions):
       """Computes learning update from batch of replay transitions."""
       rng_key, update_key = jax.random.split(rng_key)
-      d_loss_d_params = jax.grad(loss_fn)(online_params, target_params,
-                                          transitions, update_key)
+      d_loss_d_params = jax.grad(loss_fn)(
+          online_params, target_params, transitions, update_key
+      )
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
       new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params
@@ -119,8 +125,9 @@ class QrDqn(parts.Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, apply_key, policy_key = jax.random.split(rng_key, 3)
       q_t = network.apply(network_params, apply_key, s_t[None, ...]).q_values[0]
-      a_t = distrax.EpsilonGreedy(q_t,
-                                  exploration_epsilon).sample(seed=policy_key)
+      a_t = distrax.EpsilonGreedy(q_t, exploration_epsilon).sample(
+          seed=policy_key
+      )
       v_t = jnp.max(q_t, axis=-1)
       return rng_key, a_t, v_t
 
@@ -163,9 +170,9 @@ class QrDqn(parts.Agent):
   def _act(self, timestep) -> parts.Action:
     """Selects action given timestep, according to epsilon-greedy policy."""
     s_t = timestep.observation
-    self._rng_key, a_t, v_t = self._select_action(self._rng_key,
-                                                  self._online_params, s_t,
-                                                  self.exploration_epsilon)
+    self._rng_key, a_t, v_t = self._select_action(
+        self._rng_key, self._online_params, s_t, self.exploration_epsilon
+    )
     a_t, v_t = jax.device_get((a_t, v_t))
     self._statistics['state_value'] = v_t
     return parts.Action(a_t)
@@ -192,7 +199,8 @@ class QrDqn(parts.Agent):
     """Returns current agent statistics as a dictionary."""
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
-        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values())
+        not isinstance(x, jnp.DeviceArray) for x in self._statistics.values()
+    )
     return self._statistics
 
   @property

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """A Double DQN (tuned) agent training on Atari.
 
 From the paper "Deep Reinforcement Learning with Double Q-learning"
@@ -65,16 +66,16 @@ flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('max_frames_per_episode', 108000, '')  # 30 mins.
 flags.DEFINE_integer('num_action_repeats', 4, '')
 flags.DEFINE_integer('num_stacked_frames', 4, '')
-flags.DEFINE_float('exploration_epsilon_begin_value', 1., '')
+flags.DEFINE_float('exploration_epsilon_begin_value', 1.0, '')
 flags.DEFINE_float('exploration_epsilon_end_value', 0.01, '')
 flags.DEFINE_float('exploration_epsilon_decay_frame_fraction', 0.02, '')
 flags.DEFINE_float('eval_exploration_epsilon', 0.01, '')
 flags.DEFINE_integer('target_network_update_period', int(1.2e5), '')
-flags.DEFINE_float('grad_error_bound', 1. / 32, '')
+flags.DEFINE_float('grad_error_bound', 1.0 / 32, '')
 flags.DEFINE_float('learning_rate', 0.00025, '')
 flags.DEFINE_float('optimizer_epsilon', 0.01 / 32**2, '')
 flags.DEFINE_float('additional_discount', 0.99, '')
-flags.DEFINE_float('max_abs_reward', 1., '')
+flags.DEFINE_float('max_abs_reward', 1.0, '')
 flags.DEFINE_integer('seed', 1, '')  # GPU may introduce nondeterminism.
 flags.DEFINE_integer('num_iterations', 200, '')
 flags.DEFINE_integer('num_train_frames', int(1e6), '')  # Per iteration.
@@ -86,11 +87,13 @@ flags.DEFINE_string('results_csv_path', '/tmp/results.csv', '')
 def main(argv):
   """Trains Double DQN agent on Atari."""
   del argv
-  logging.info('Double DQN on Atari on %s.',
-               jax.lib.xla_bridge.get_backend().platform)
+  logging.info(
+      'Double DQN on Atari on %s.', jax.lib.xla_bridge.get_backend().platform
+  )
   random_state = np.random.RandomState(FLAGS.seed)
   rng_key = jax.random.PRNGKey(
-      random_state.randint(-sys.maxsize - 1, sys.maxsize + 1, dtype=np.int64))
+      random_state.randint(-sys.maxsize - 1, sys.maxsize + 1, dtype=np.int64)
+  )
 
   if FLAGS.results_csv_path:
     writer = parts.CsvWriter(FLAGS.results_csv_path)
@@ -100,7 +103,8 @@ def main(argv):
   def environment_builder():
     """Creates Atari environment."""
     env = gym_atari.GymAtari(
-        FLAGS.environment_name, seed=random_state.randint(1, 2**32))
+        FLAGS.environment_name, seed=random_state.randint(1, 2**32)
+    )
     return gym_atari.RandomNoopsEnvironmentWrapper(
         env,
         min_noop_steps=1,
@@ -131,32 +135,48 @@ def main(argv):
 
   # Create sample network input from sample preprocessor output.
   sample_processed_timestep = preprocessor_builder()(env.reset())
-  sample_processed_timestep = typing.cast(dm_env.TimeStep,
-                                          sample_processed_timestep)
+  sample_processed_timestep = typing.cast(
+      dm_env.TimeStep, sample_processed_timestep
+  )
   sample_network_input = sample_processed_timestep.observation
-  chex.assert_shape(sample_network_input,
-                    (FLAGS.environment_height, FLAGS.environment_width,
-                     FLAGS.num_stacked_frames))
+  chex.assert_shape(
+      sample_network_input,
+      (
+          FLAGS.environment_height,
+          FLAGS.environment_width,
+          FLAGS.num_stacked_frames,
+      ),
+  )
 
   exploration_epsilon_schedule = parts.LinearSchedule(
-      begin_t=int(FLAGS.min_replay_capacity_fraction * FLAGS.replay_capacity *
-                  FLAGS.num_action_repeats),
-      decay_steps=int(FLAGS.exploration_epsilon_decay_frame_fraction *
-                      FLAGS.num_iterations * FLAGS.num_train_frames),
+      begin_t=int(
+          FLAGS.min_replay_capacity_fraction
+          * FLAGS.replay_capacity
+          * FLAGS.num_action_repeats
+      ),
+      decay_steps=int(
+          FLAGS.exploration_epsilon_decay_frame_fraction
+          * FLAGS.num_iterations
+          * FLAGS.num_train_frames
+      ),
       begin_value=FLAGS.exploration_epsilon_begin_value,
-      end_value=FLAGS.exploration_epsilon_end_value)
+      end_value=FLAGS.exploration_epsilon_end_value,
+  )
 
   if FLAGS.compress_state:
 
     def encoder(transition):
       return transition._replace(
           s_tm1=replay_lib.compress_array(transition.s_tm1),
-          s_t=replay_lib.compress_array(transition.s_t))
+          s_t=replay_lib.compress_array(transition.s_t),
+      )
 
     def decoder(transition):
       return transition._replace(
           s_tm1=replay_lib.uncompress_array(transition.s_tm1),
-          s_t=replay_lib.uncompress_array(transition.s_t))
+          s_t=replay_lib.uncompress_array(transition.s_t),
+      )
+
   else:
     encoder = None
     decoder = None
@@ -169,8 +189,9 @@ def main(argv):
       s_t=None,
   )
 
-  replay = replay_lib.TransitionReplay(FLAGS.replay_capacity, replay_structure,
-                                       random_state, encoder, decoder)
+  replay = replay_lib.TransitionReplay(
+      FLAGS.replay_capacity, replay_structure, random_state, encoder, decoder
+  )
 
   optimizer = optax.rmsprop(
       learning_rate=FLAGS.learning_rate,
@@ -235,8 +256,9 @@ def main(argv):
 
     # Logging and checkpointing.
     human_normalized_score = atari_data.get_human_normalized_score(
-        FLAGS.environment_name, eval_stats['episode_return'])
-    capped_human_normalized_score = np.amin([1., human_normalized_score])
+        FLAGS.environment_name, eval_stats['episode_return']
+    )
+    capped_human_normalized_score = np.amin([1.0, human_normalized_score])
     log_output = [
         ('iteration', state.iteration, '%3d'),
         ('frame', state.iteration * FLAGS.num_train_frames, '%5d'),
@@ -250,7 +272,7 @@ def main(argv):
         ('train_state_value', train_stats['state_value'], '%.3f'),
         ('normalized_return', human_normalized_score, '%.3f'),
         ('capped_normalized_return', capped_human_normalized_score, '%.3f'),
-        ('human_gap', 1. - capped_human_normalized_score, '%.3f'),
+        ('human_gap', 1.0 - capped_human_normalized_score, '%.3f'),
     ]
     log_output_str = ', '.join(('%s: ' + f) % (n, v) for n, v, f in log_output)
     logging.info(log_output_str)

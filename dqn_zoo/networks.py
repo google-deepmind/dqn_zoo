@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """DQN agent network components and implementation."""
 
 # pylint: disable=g-bad-import-order
@@ -55,7 +56,8 @@ class C51NetworkOutputs(typing.NamedTuple):
 
 
 def _dqn_default_initializer(
-    num_input_units: int) -> hk.initializers.Initializer:
+    num_input_units: int,
+) -> hk.initializers.Initializer:
   """Default initialization scheme inherited from past implementations of DQN.
 
   This scheme was historically used to initialize all weights and biases
@@ -94,7 +96,8 @@ def conv(
         stride=stride,
         w_init=initializer,
         b_init=initializer,
-        padding='VALID')
+        padding='VALID',
+    )
     return layer(inputs)
 
   return net_fn
@@ -107,10 +110,8 @@ def linear(num_outputs: int, with_bias=True) -> NetworkFn:
     """Function representing linear layer with DQN's legacy initialization."""
     initializer = _dqn_default_initializer(inputs.shape[-1])
     layer = hk.Linear(
-        num_outputs,
-        with_bias=with_bias,
-        w_init=initializer,
-        b_init=initializer)
+        num_outputs, with_bias=with_bias, w_init=initializer, b_init=initializer
+    )
     return layer(inputs)
 
   return net_fn
@@ -123,7 +124,8 @@ def linear_with_shared_bias(num_outputs: int) -> NetworkFn:
     """Function representing a linear layer with single shared bias."""
     initializer = _dqn_default_initializer(inputs.shape[-1])
     bias_free_linear = hk.Linear(
-        num_outputs, with_bias=False, w_init=initializer)
+        num_outputs, with_bias=False, w_init=initializer
+    )
     linear_output = bias_free_linear(inputs)
     bias = hk.get_parameter('b', [1], inputs.dtype, init=initializer)
     bias = jnp.broadcast_to(bias, linear_output.shape)
@@ -132,13 +134,13 @@ def linear_with_shared_bias(num_outputs: int) -> NetworkFn:
   return layer_fn
 
 
-def noisy_linear(num_outputs: int,
-                 weight_init_stddev: float,
-                 with_bias: bool = True) -> NetworkFn:
+def noisy_linear(
+    num_outputs: int, weight_init_stddev: float, with_bias: bool = True
+) -> NetworkFn:
   """Linear layer with weight randomization http://arxiv.org/abs/1706.10295."""
 
   def make_noise_sqrt(rng, shape):
-    noise = jax.random.truncated_normal(rng, lower=-2., upper=2., shape=shape)
+    noise = jax.random.truncated_normal(rng, lower=-2.0, upper=2.0, shape=shape)
     return jax.lax.stop_gradient(jnp.sign(noise) * jnp.sqrt(jnp.abs(noise)))
 
   def net_fn(inputs):
@@ -150,15 +152,18 @@ def noisy_linear(num_outputs: int,
         name='mu',
         with_bias=with_bias,
         w_init=mu_initializer,
-        b_init=mu_initializer)
+        b_init=mu_initializer,
+    )
     sigma_initializer = hk.initializers.Constant(  #
-        weight_init_stddev / jnp.sqrt(num_inputs))
+        weight_init_stddev / jnp.sqrt(num_inputs)
+    )
     sigma_layer = hk.Linear(
         num_outputs,
         name='sigma',
         with_bias=True,
         w_init=sigma_initializer,
-        b_init=sigma_initializer)
+        b_init=sigma_initializer,
+    )
 
     # Broadcast noise over batch dimension.
     input_noise_sqrt = make_noise_sqrt(hk.next_rng_key(), [1, num_inputs])
@@ -185,7 +190,7 @@ def dqn_torso() -> NetworkFn:
   def net_fn(inputs):
     """Function representing convolutional torso for a DQN Q-network."""
     network = hk.Sequential([
-        lambda x: x.astype(jnp.float32) / 255.,
+        lambda x: x.astype(jnp.float32) / 255.0,
         conv(32, kernel_shape=(8, 8), stride=(4, 4)),
         jax.nn.relu,
         conv(64, kernel_shape=(4, 4), stride=(2, 2)),
@@ -235,8 +240,8 @@ def rainbow_atari_network(
     advantage = noisy_linear(512, noisy_weight_init, with_bias=True)(inputs)
     advantage = jax.nn.relu(advantage)
     advantage = noisy_linear(
-        num_actions * num_atoms, noisy_weight_init, with_bias=False)(
-            advantage)
+        num_actions * num_atoms, noisy_weight_init, with_bias=False
+    )(advantage)
     advantage = jnp.reshape(advantage, (-1, num_actions, num_atoms))
 
     # Value head.

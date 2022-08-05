@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Utilities to compute human-normalized Atari scores.
 
 The data used in this module is human and random performance data on Atari-57.

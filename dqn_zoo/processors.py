@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Composable timestep processing, for DQN Atari preprocessing.
 
 Aims:
@@ -54,7 +55,8 @@ identity = lambda v: v
 
 
 def trailing_zero_pad(
-    length: int) -> Processor[[List[np.ndarray]], List[np.ndarray]]:
+    length: int,
+) -> Processor[[List[np.ndarray]], List[np.ndarray]]:
   """Adds trailing zero padding to array lists to ensure a minimum length."""
 
   def trailing_zero_pad_fn(arrays):
@@ -286,11 +288,12 @@ class ZeroDiscountOnLifeLoss:
     num_lives = timestep.observation[1]
     life_lost = timestep.mid() and (num_lives < self._num_lives_on_prev_step)
     self._num_lives_on_prev_step = num_lives
-    return timestep._replace(discount=0.) if life_lost else timestep
+    return timestep._replace(discount=0.0) if life_lost else timestep
 
 
-def reduce_step_type(step_types: Sequence[StepType],
-                     debug: bool = False) -> StepType:
+def reduce_step_type(
+    step_types: Sequence[StepType], debug: bool = False
+) -> StepType:
   """Outputs a representative step type from an array of step types."""
   # Zero padding will appear to be FIRST. Padding should only be seen before the
   # FIRST (e.g. 000F) or after LAST (e.g. ML00).
@@ -305,7 +308,7 @@ def reduce_step_type(step_types: Sequence[StepType],
       break
     elif step_type == StepType.LAST:
       output_step_type = StepType.LAST
-      if debug and not (np_step_types[i + 1:] == 0).all():
+      if debug and not (np_step_types[i + 1 :] == 0).all():
         raise ValueError('Expected LAST to be followed by zero padding.')
       break
     else:
@@ -314,8 +317,9 @@ def reduce_step_type(step_types: Sequence[StepType],
   return output_step_type
 
 
-def aggregate_rewards(rewards: Sequence[Optional[float]],
-                      debug: bool = False) -> Optional[float]:
+def aggregate_rewards(
+    rewards: Sequence[Optional[float]], debug: bool = False
+) -> Optional[float]:
   """Sums up rewards, assumes discount is 1."""
   if None in rewards:
     if debug:
@@ -329,14 +333,16 @@ def aggregate_rewards(rewards: Sequence[Optional[float]],
     return sum(rewards)
 
 
-def aggregate_discounts(discounts: Sequence[Optional[float]],
-                        debug: bool = False) -> Optional[float]:
+def aggregate_discounts(
+    discounts: Sequence[Optional[float]], debug: bool = False
+) -> Optional[float]:
   """Aggregates array of discounts into a scalar, expects `0`, `1` or `None`."""
   if debug:
     np_discounts = np.array(discounts)
-    if not np.isin(np_discounts, [0., 1., None]).all():
-      raise ValueError('All discounts should be 0 or 1, got: %s.' %
-                       np_discounts)
+    if not np.isin(np_discounts, [0.0, 1.0, None]).all():
+      raise ValueError(
+          'All discounts should be 0 or 1, got: %s.' % np_discounts
+      )
   if None in discounts:
     if debug:
       if not (np_discounts[-1] is None and (np_discounts[:-1] == 0).all()):
@@ -378,7 +384,8 @@ def select_rgb_observation(timestep: dm_env.TimeStep) -> dm_env.TimeStep:
 
 
 def apply_additional_discount(
-    additional_discount: float) -> Processor[[float], float]:
+    additional_discount: float,
+) -> Processor[[float], float]:
   """Returns a function that scales its non-`None` input by a constant."""
   return lambda d: None if d is None else additional_discount * d
 
@@ -487,7 +494,8 @@ def atari(
                   #      ~, ~, ~, BCDE, ...
                   lambda obs: np.stack(obs, axis=-1),
               ),
-          )),
+          )
+      ),
   )
 
 
@@ -516,7 +524,8 @@ class AtariEnvironmentWrapper(dm_env.Environment):
     if rgb_spec.shape[2] != 3:
       raise ValueError(
           'This wrapper assumes interleaved pixel observations with shape '
-          '(height, width, channels).')
+          '(height, width, channels).'
+      )
     if int(environment.action_spec().minimum) != 0:
       raise ValueError('This wrapper assumes zero-indexed actions.')
 
@@ -574,4 +583,5 @@ class AtariEnvironmentWrapper(dm_env.Environment):
     return specs.Array(
         shape=self._observation_shape,
         dtype=np.uint8,
-        name=self._observation_spec_name)
+        name=self._observation_spec_name,
+    )

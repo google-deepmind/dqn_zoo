@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Tests for networks."""
 
 # pylint: disable=g-bad-import-order
@@ -66,8 +67,9 @@ class LinearWithSharedBiasTest(absltest.TestCase):
     self.network = hk.transform(network_fn)
 
   def test_bias_parameter_shape(self):
-    params = self.network.init(self.init_rng_key,
-                               _sample_input(self.input_shape))
+    params = self.network.init(
+        self.init_rng_key, _sample_input(self.input_shape)
+    )
     self.assertLen(tree.flatten(params), 2)
 
     def check_params(path, param):
@@ -83,8 +85,9 @@ class LinearWithSharedBiasTest(absltest.TestCase):
 
   def test_output_shares_bias(self):
     bias = 1.23
-    params = self.network.init(self.init_rng_key,
-                               _sample_input(self.input_shape))
+    params = self.network.init(
+        self.init_rng_key, _sample_input(self.input_shape)
+    )
 
     def replace_params(path, param):
       if path[-1] == 'b':
@@ -93,8 +96,9 @@ class LinearWithSharedBiasTest(absltest.TestCase):
         return jnp.zeros_like(param)
 
     params = tree.map_structure_with_path(replace_params, params)
-    output = self.network.apply(params, self.apply_rng_key,
-                                jnp.zeros((1,) + self.input_shape))
+    output = self.network.apply(
+        params, self.apply_rng_key, jnp.zeros((1,) + self.input_shape)
+    )
     chex.assert_shape(output, (1,) + self.output_shape)
     np.testing.assert_allclose([bias] * self.output_shape[0], list(output[0]))
 
@@ -109,8 +113,9 @@ class NoisyLinearTest(absltest.TestCase):
     self.output_shape = (3,)
     self.network_fn = networks.noisy_linear(self.output_shape[0], 0.1)
     self.network = hk.transform(self.network_fn)
-    self.params = self.network.init(self.init_rng_key,
-                                    _sample_input(self.input_shape))
+    self.params = self.network.init(
+        self.init_rng_key, _sample_input(self.input_shape)
+    )
     self.inputs = jnp.zeros((2,) + self.input_shape)
 
   def test_basic(self):

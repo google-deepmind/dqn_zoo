@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Components for DQN."""
 
 # pylint: disable=g-bad-import-order
@@ -71,8 +72,11 @@ def run_loop(
     environment: dm_env.Environment,
     max_steps_per_episode: int = 0,
     yield_before_reset: bool = False,
-) -> Iterable[Tuple[dm_env.Environment, Optional[dm_env.TimeStep], Agent,
-                    Optional[Action]]]:
+) -> Iterable[
+    Tuple[
+        dm_env.Environment, Optional[dm_env.TimeStep], Agent, Optional[Action]
+    ]
+]:
   """Repeatedly alternates step calls on environment and agent.
 
   At time `t`, `t + 1` environment timesteps and `t + 1` agent steps have been
@@ -120,9 +124,14 @@ def run_loop(
 
 def generate_statistics(
     trackers: Iterable[Any],
-    timestep_action_sequence: Iterable[Tuple[dm_env.Environment,
-                                             Optional[dm_env.TimeStep], Agent,
-                                             Optional[Action]]]
+    timestep_action_sequence: Iterable[
+        Tuple[
+            dm_env.Environment,
+            Optional[dm_env.TimeStep],
+            Agent,
+            Optional[Action],
+        ]
+    ],
 ) -> Mapping[Text, Any]:
   """Generates statistics from a sequence of timestep and actions."""
   # Only reset at the start, not between episodes.
@@ -258,7 +267,7 @@ class UnbiasedExponentialWeightedAverageAgentTracker:
   def __init__(self, step_size: float, initial_agent: Agent):
     self._initial_statistics = dict(initial_agent.statistics)
     self._step_size = step_size
-    self.trace = 0.
+    self.trace = 0.0
     self._statistics = dict(self._initial_statistics)
 
   def step(
@@ -282,11 +291,13 @@ class UnbiasedExponentialWeightedAverageAgentTracker:
     else:
       self._statistics = jax.tree_map(
           lambda s, x: (1 - final_step_size) * s + final_step_size * x,
-          self._statistics, agent.statistics)
+          self._statistics,
+          agent.statistics,
+      )
 
   def reset(self) -> None:
     """Resets statistics and internal state."""
-    self.trace = 0.
+    self.trace = 0.0
     # get() may be called before step() so ensure statistics are initialized.
     self._statistics = dict(self._initial_statistics)
 
@@ -300,7 +311,8 @@ def make_default_trackers(initial_agent: Agent):
       EpisodeTracker(),
       StepRateTracker(),
       UnbiasedExponentialWeightedAverageAgentTracker(
-          step_size=1e-3, initial_agent=initial_agent),
+          step_size=1e-3, initial_agent=initial_agent
+      ),
   ]
 
 
@@ -327,8 +339,9 @@ class EpsilonGreedyActor(Agent):
       """Samples action from eps-greedy policy wrt Q-values at given state."""
       rng_key, apply_key, policy_key = jax.random.split(rng_key, 3)
       q_t = network.apply(network_params, apply_key, s_t[None, ...]).q_values[0]
-      a_t = distrax.EpsilonGreedy(q_t,
-                                  exploration_epsilon).sample(seed=policy_key)
+      a_t = distrax.EpsilonGreedy(q_t, exploration_epsilon).sample(
+          seed=policy_key
+      )
       return rng_key, a_t
 
     self._select_action = jax.jit(select_action)
@@ -341,8 +354,9 @@ class EpsilonGreedyActor(Agent):
       return self._action
 
     s_t = timestep.observation
-    self._rng_key, a_t = self._select_action(self._rng_key, self.network_params,
-                                             s_t)
+    self._rng_key, a_t = self._select_action(
+        self._rng_key, self.network_params, s_t
+    )
     self._action = Action(jax.device_get(a_t))
     return self._action
 
@@ -375,12 +389,9 @@ class EpsilonGreedyActor(Agent):
 class LinearSchedule:
   """Linear schedule, used for exploration epsilon in DQN agents."""
 
-  def __init__(self,
-               begin_value,
-               end_value,
-               begin_t,
-               end_t=None,
-               decay_steps=None):
+  def __init__(
+      self, begin_value, end_value, begin_t, end_t=None, decay_steps=None
+  ):
     if (end_t is None) == (decay_steps is None):
       raise ValueError('Exactly one of end_t, decay_steps must be provided.')
     self._decay_steps = decay_steps if end_t is None else end_t - begin_t
@@ -449,7 +460,7 @@ class CsvWriter:
     """Retrieves `CsvWriter` state as a `dict` (e.g. for serialization)."""
     return {
         'header_written': self._header_written,
-        'fieldnames': self._fieldnames
+        'fieldnames': self._fieldnames,
     }
 
   def set_state(self, state: Mapping[Text, Any]) -> None:
