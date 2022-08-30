@@ -57,38 +57,56 @@ from dqn_zoo.rainbow import agent
 
 # Relevant flag values are expressed in terms of environment frames.
 FLAGS = flags.FLAGS
-flags.DEFINE_string('environment_name', 'pong', '')
-flags.DEFINE_integer('environment_height', 84, '')
-flags.DEFINE_integer('environment_width', 84, '')
-flags.DEFINE_integer('replay_capacity', int(1e6), '')
-flags.DEFINE_bool('compress_state', True, '')
-flags.DEFINE_float('min_replay_capacity_fraction', 0.02, '')
-flags.DEFINE_integer('batch_size', 32, '')
-flags.DEFINE_integer('max_frames_per_episode', 108000, '')  # 30 mins.
-flags.DEFINE_integer('num_action_repeats', 4, '')
-flags.DEFINE_integer('num_stacked_frames', 4, '')
-flags.DEFINE_integer('target_network_update_period', int(3.2e4), '')
-flags.DEFINE_float('learning_rate', 0.00025 / 4, '')
-flags.DEFINE_float('optimizer_epsilon', 0.005 / 32, '')
-flags.DEFINE_float('additional_discount', 0.99, '')
-flags.DEFINE_float('max_abs_reward', 1.0, '')
-flags.DEFINE_float('max_global_grad_norm', 10.0, '')
-flags.DEFINE_integer('seed', 1, '')  # GPU may introduce nondeterminism.
-flags.DEFINE_integer('num_iterations', 200, '')
-flags.DEFINE_integer('num_train_frames', int(1e6), '')  # Per iteration.
-flags.DEFINE_integer('num_eval_frames', int(5e5), '')  # Per iteration.
-flags.DEFINE_integer('learn_period', 16, '')
-flags.DEFINE_string('results_csv_path', '/tmp/results.csv', '')
+_ENVIRONMENT_NAME = flags.DEFINE_string('environment_name', 'pong', '')
+_ENVIRONMENT_HEIGHT = flags.DEFINE_integer('environment_height', 84, '')
+_ENVIRONMENT_WIDTH = flags.DEFINE_integer('environment_width', 84, '')
+_REPLAY_CAPACITY = flags.DEFINE_integer('replay_capacity', int(1e6), '')
+_COMPRESS_STATE = flags.DEFINE_bool('compress_state', True, '')
+_MIN_REPLAY_CAPACITY_FRACTION = flags.DEFINE_float(
+    'min_replay_capacity_fraction', 0.02, ''
+)
+_BATCH_SIZE = flags.DEFINE_integer('batch_size', 32, '')
+_MAX_FRAMES_PER_EPISODE = flags.DEFINE_integer(
+    'max_frames_per_episode', 108000, ''
+)  # 30 mins.
+_NUM_ACTION_REPEATS = flags.DEFINE_integer('num_action_repeats', 4, '')
+_NUM_STACKED_FRAMES = flags.DEFINE_integer('num_stacked_frames', 4, '')
+_TARGET_NETWORK_UPDATE_PERIOD = flags.DEFINE_integer(
+    'target_network_update_period', int(3.2e4), ''
+)
+_LEARNING_RATE = flags.DEFINE_float('learning_rate', 0.00025 / 4, '')
+_OPTIMIZER_EPSILON = flags.DEFINE_float('optimizer_epsilon', 0.005 / 32, '')
+_ADDITIONAL_DISCOUNT = flags.DEFINE_float('additional_discount', 0.99, '')
+_MAX_ABS_REWARD = flags.DEFINE_float('max_abs_reward', 1.0, '')
+_MAX_GLOBAL_GRAD_NORM = flags.DEFINE_float('max_global_grad_norm', 10.0, '')
+_SEED = flags.DEFINE_integer('seed', 1, '')  # GPU may introduce nondeterminism.
+_NUM_ITERATIONS = flags.DEFINE_integer('num_iterations', 200, '')
+_NUM_TRAIN_FRAMES = flags.DEFINE_integer(
+    'num_train_frames', int(1e6), ''
+)  # Per iteration.
+_NUM_EVAL_FRAMES = flags.DEFINE_integer(
+    'num_eval_frames', int(5e5), ''
+)  # Per iteration.
+_LEARN_PERIOD = flags.DEFINE_integer('learn_period', 16, '')
+_RESULTS_CSV_PATH = flags.DEFINE_string(
+    'results_csv_path', '/tmp/results.csv', ''
+)
 
-flags.DEFINE_float('priority_exponent', 0.5, '')
-flags.DEFINE_float('importance_sampling_exponent_begin_value', 0.4, '')
-flags.DEFINE_float('importance_sampling_exponent_end_value', 1.0, '')
-flags.DEFINE_float('uniform_sample_probability', 1e-3, '')
-flags.DEFINE_bool('normalize_weights', True, '')
-flags.DEFINE_integer('n_steps', 3, '')
-flags.DEFINE_float('vmax', 10.0, '')
-flags.DEFINE_integer('num_atoms', 51, '')
-flags.DEFINE_float('noisy_weight_init', 0.1, '')
+_PRIORITY_EXPONENT = flags.DEFINE_float('priority_exponent', 0.5, '')
+_IMPORTANCE_SAMPLING_EXPONENT_BEGIN_VALUE = flags.DEFINE_float(
+    'importance_sampling_exponent_begin_value', 0.4, ''
+)
+_IMPORTANCE_SAMPLING_EXPONENT_END_VALUE = flags.DEFINE_float(
+    'importance_sampling_exponent_end_value', 1.0, ''
+)
+_UNIFORM_SAMPLE_PROBABILITY = flags.DEFINE_float(
+    'uniform_sample_probability', 1e-3, ''
+)
+_NORMALIZE_WEIGHTS = flags.DEFINE_bool('normalize_weights', True, '')
+_N_STEPS = flags.DEFINE_integer('n_steps', 3, '')
+_VMAX = flags.DEFINE_float('vmax', 10.0, '')
+_NUM_ATOMS = flags.DEFINE_integer('num_atoms', 51, '')
+_NOISY_WEIGHT_INIT = flags.DEFINE_float('noisy_weight_init', 0.1, '')
 
 
 def main(argv):
@@ -97,20 +115,20 @@ def main(argv):
   logging.info(
       'Rainbow on Atari on %s.', jax.lib.xla_bridge.get_backend().platform
   )
-  random_state = np.random.RandomState(FLAGS.seed)
+  random_state = np.random.RandomState(_SEED.value)
   rng_key = jax.random.PRNGKey(
       random_state.randint(-sys.maxsize - 1, sys.maxsize + 1, dtype=np.int64)
   )
 
-  if FLAGS.results_csv_path:
-    writer = parts.CsvWriter(FLAGS.results_csv_path)
+  if _RESULTS_CSV_PATH.value:
+    writer = parts.CsvWriter(_RESULTS_CSV_PATH.value)
   else:
     writer = parts.NullWriter()
 
   def environment_builder():
     """Creates Atari environment."""
     env = gym_atari.GymAtari(
-        FLAGS.environment_name, seed=random_state.randint(1, 2**32)
+        _ENVIRONMENT_NAME.value, seed=random_state.randint(1, 2**32)
     )
     return gym_atari.RandomNoopsEnvironmentWrapper(
         env,
@@ -121,25 +139,25 @@ def main(argv):
 
   env = environment_builder()
 
-  logging.info('Environment: %s', FLAGS.environment_name)
+  logging.info('Environment: %s', _ENVIRONMENT_NAME.value)
   logging.info('Action spec: %s', env.action_spec())
   logging.info('Observation spec: %s', env.observation_spec())
   num_actions = env.action_spec().num_values
-  support = jnp.linspace(-FLAGS.vmax, FLAGS.vmax, FLAGS.num_atoms)
+  support = jnp.linspace(-_VMAX.value, _VMAX.value, _NUM_ATOMS.value)
   network_fn = networks.rainbow_atari_network(
-      num_actions, support, FLAGS.noisy_weight_init
+      num_actions, support, _NOISY_WEIGHT_INIT.value
   )
   network = hk.transform(network_fn)
 
   def preprocessor_builder():
     return processors.atari(
-        additional_discount=FLAGS.additional_discount,
-        max_abs_reward=FLAGS.max_abs_reward,
-        resize_shape=(FLAGS.environment_height, FLAGS.environment_width),
-        num_action_repeats=FLAGS.num_action_repeats,
+        additional_discount=_ADDITIONAL_DISCOUNT.value,
+        max_abs_reward=_MAX_ABS_REWARD.value,
+        resize_shape=(_ENVIRONMENT_HEIGHT.value, _ENVIRONMENT_WIDTH.value),
+        num_action_repeats=_NUM_ACTION_REPEATS.value,
         num_pooled_frames=2,
         zero_discount_on_life_loss=True,
-        num_stacked_frames=FLAGS.num_stacked_frames,
+        num_stacked_frames=_NUM_STACKED_FRAMES.value,
         grayscaling=True,
     )
 
@@ -152,24 +170,24 @@ def main(argv):
   chex.assert_shape(
       sample_network_input,
       (
-          FLAGS.environment_height,
-          FLAGS.environment_width,
-          FLAGS.num_stacked_frames,
+          _ENVIRONMENT_HEIGHT.value,
+          _ENVIRONMENT_WIDTH.value,
+          _NUM_STACKED_FRAMES.value,
       ),
   )
 
   # Note the t in the replay is not exactly aligned with the agent t.
   importance_sampling_exponent_schedule = parts.LinearSchedule(
-      begin_t=int(FLAGS.min_replay_capacity_fraction * FLAGS.replay_capacity),
+      begin_t=int(_MIN_REPLAY_CAPACITY_FRACTION.value * _REPLAY_CAPACITY.value),
       end_t=(
-          FLAGS.num_iterations
-          * int(FLAGS.num_train_frames / FLAGS.num_action_repeats)
+          _NUM_ITERATIONS.value
+          * int(_NUM_TRAIN_FRAMES.value / _NUM_ACTION_REPEATS.value)
       ),
-      begin_value=FLAGS.importance_sampling_exponent_begin_value,
-      end_value=FLAGS.importance_sampling_exponent_end_value,
+      begin_value=_IMPORTANCE_SAMPLING_EXPONENT_BEGIN_VALUE.value,
+      end_value=_IMPORTANCE_SAMPLING_EXPONENT_END_VALUE.value,
   )
 
-  if FLAGS.compress_state:
+  if _COMPRESS_STATE.value:
 
     def encoder(transition):
       return transition._replace(
@@ -195,25 +213,25 @@ def main(argv):
       s_t=None,
   )
 
-  transition_accumulator = replay_lib.NStepTransitionAccumulator(FLAGS.n_steps)
+  transition_accumulator = replay_lib.NStepTransitionAccumulator(_N_STEPS.value)
   replay = replay_lib.PrioritizedTransitionReplay(
-      FLAGS.replay_capacity,
+      _REPLAY_CAPACITY.value,
       replay_structure,
-      FLAGS.priority_exponent,
+      _PRIORITY_EXPONENT.value,
       importance_sampling_exponent_schedule,
-      FLAGS.uniform_sample_probability,
-      FLAGS.normalize_weights,
+      _UNIFORM_SAMPLE_PROBABILITY.value,
+      _NORMALIZE_WEIGHTS.value,
       random_state,
       encoder,
       decoder,
   )
 
   optimizer = optax.adam(
-      learning_rate=FLAGS.learning_rate, eps=FLAGS.optimizer_epsilon
+      learning_rate=_LEARNING_RATE.value, eps=_OPTIMIZER_EPSILON.value
   )
-  if FLAGS.max_global_grad_norm > 0:
+  if _MAX_GLOBAL_GRAD_NORM.value > 0:
     optimizer = optax.chain(
-        optax.clip_by_global_norm(FLAGS.max_global_grad_norm), optimizer
+        optax.clip_by_global_norm(_MAX_GLOBAL_GRAD_NORM.value), optimizer
     )
 
   train_rng_key, eval_rng_key = jax.random.split(rng_key)
@@ -226,10 +244,10 @@ def main(argv):
       optimizer=optimizer,
       transition_accumulator=transition_accumulator,
       replay=replay,
-      batch_size=FLAGS.batch_size,
-      min_replay_capacity_fraction=FLAGS.min_replay_capacity_fraction,
-      learn_period=FLAGS.learn_period,
-      target_network_update_period=FLAGS.target_network_update_period,
+      batch_size=_BATCH_SIZE.value,
+      min_replay_capacity_fraction=_MIN_REPLAY_CAPACITY_FRACTION.value,
+      learn_period=_LEARN_PERIOD.value,
+      target_network_update_period=_TARGET_NETWORK_UPDATE_PERIOD.value,
       rng_key=train_rng_key,
   )
   eval_agent = parts.EpsilonGreedyActor(
@@ -251,32 +269,32 @@ def main(argv):
   if checkpoint.can_be_restored():
     checkpoint.restore()
 
-  while state.iteration <= FLAGS.num_iterations:
+  while state.iteration <= _NUM_ITERATIONS.value:
     # New environment for each iteration to allow for determinism if preempted.
     env = environment_builder()
 
     logging.info('Training iteration %d.', state.iteration)
-    train_seq = parts.run_loop(train_agent, env, FLAGS.max_frames_per_episode)
-    num_train_frames = 0 if state.iteration == 0 else FLAGS.num_train_frames
+    train_seq = parts.run_loop(train_agent, env, _MAX_FRAMES_PER_EPISODE.value)
+    num_train_frames = 0 if state.iteration == 0 else _NUM_TRAIN_FRAMES.value
     train_seq_truncated = itertools.islice(train_seq, num_train_frames)
     train_trackers = parts.make_default_trackers(train_agent)
     train_stats = parts.generate_statistics(train_trackers, train_seq_truncated)
 
     logging.info('Evaluation iteration %d.', state.iteration)
     eval_agent.network_params = train_agent.online_params
-    eval_seq = parts.run_loop(eval_agent, env, FLAGS.max_frames_per_episode)
-    eval_seq_truncated = itertools.islice(eval_seq, FLAGS.num_eval_frames)
+    eval_seq = parts.run_loop(eval_agent, env, _MAX_FRAMES_PER_EPISODE.value)
+    eval_seq_truncated = itertools.islice(eval_seq, _NUM_EVAL_FRAMES.value)
     eval_trackers = parts.make_default_trackers(eval_agent)
     eval_stats = parts.generate_statistics(eval_trackers, eval_seq_truncated)
 
     # Logging and checkpointing.
     human_normalized_score = atari_data.get_human_normalized_score(
-        FLAGS.environment_name, eval_stats['episode_return']
+        _ENVIRONMENT_NAME.value, eval_stats['episode_return']
     )
     capped_human_normalized_score = np.amin([1.0, human_normalized_score])
     log_output = [
         ('iteration', state.iteration, '%3d'),
-        ('frame', state.iteration * FLAGS.num_train_frames, '%5d'),
+        ('frame', state.iteration * _NUM_TRAIN_FRAMES.value, '%5d'),
         ('eval_episode_return', eval_stats['episode_return'], '% 2.2f'),
         ('train_episode_return', train_stats['episode_return'], '% 2.2f'),
         ('eval_num_episodes', eval_stats['num_episodes'], '%3d'),
