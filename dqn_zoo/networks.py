@@ -49,6 +49,11 @@ class QRNetworkOutputs(typing.NamedTuple):
   q_dist: jnp.ndarray
 
 
+class ADNetworkOutputs(typing.NamedTuple):  # ADDED BY MASTANE
+  q_values: jnp.ndarray
+  q_dist: jnp.ndarray
+
+
 class C51NetworkOutputs(typing.NamedTuple):
   q_values: jnp.ndarray
   q_logits: jnp.ndarray
@@ -304,6 +309,27 @@ def qr_atari_network(num_actions: int, quantiles: jnp.ndarray) -> NetworkFn:
     q_values = jnp.mean(q_dist, axis=1)
     q_values = jax.lax.stop_gradient(q_values)
     return QRNetworkOutputs(q_dist=q_dist, q_values=q_values)
+
+  return net_fn
+
+
+def ad_atari_network(num_actions: int, avars: jnp.ndarray) -> NetworkFn:
+  """AD-DQN network, expects `uint8` input."""
+
+  chex.assert_rank(avars, 1)
+  num_avars = len(avars)
+
+  def net_fn(inputs):
+    """Function representing AD-DQN Q-network."""
+    network = hk.Sequential([
+        dqn_torso(),
+        dqn_value_head(num_avars * num_actions),
+    ])
+    network_output = network(inputs)
+    q_dist = jnp.reshape(network_output, (-1, num_avars, num_actions))
+    q_values = jnp.mean(q_dist, axis=1)
+    q_values = jax.lax.stop_gradient(q_values)
+    return ADNetworkOutputs(q_dist=q_dist, q_values=q_values)
 
   return net_fn
 
