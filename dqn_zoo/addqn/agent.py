@@ -26,7 +26,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-import AD_rlax as rlax
+import ad_rlax as rlax
 
 from dqn_zoo import parts
 from dqn_zoo import processors
@@ -91,7 +91,6 @@ class AdDqn(parts.Agent):
                                       transitions.s_t).q_dist
       td_errors = _batch_avar_q_learning(
           dist_q_tm1,
-          avars,
           transitions.a_tm1,
           transitions.r_t,
           transitions.discount_t,
