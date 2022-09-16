@@ -89,6 +89,8 @@ class AdDqn(parts.Agent):
                                  transitions.s_tm1).q_dist
       dist_q_target_t = network.apply(target_params, target_key,
                                       transitions.s_t).q_dist
+      dist_q_target_tm1 = network.apply(target_params, target_key,
+                                      transitions.s_tm1).q_dist
       td_errors = _batch_avar_q_learning(
           dist_q_tm1,
           transitions.a_tm1,
@@ -96,6 +98,7 @@ class AdDqn(parts.Agent):
           transitions.discount_t,
           dist_q_target_t,  # No double Q-learning here.
           dist_q_target_t,
+          dist_q_target_tm1,  # ADDED BY MASTANE: target dist for mixture update
       )
       td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
                                      grad_error_bound)
