@@ -75,6 +75,7 @@ flags.DEFINE_integer('learn_period', 16, '')
 flags.DEFINE_string('results_csv_path', '/tmp/results.csv', '')
 
 flags.DEFINE_integer('num_avars', 51, '')
+flags.DEFINE_float('mixture_ratio', 0.00025, '')
 
 
 def main(argv):
@@ -191,6 +192,7 @@ def main(argv):
       target_network_update_period=FLAGS.target_network_update_period,
       grad_error_bound=FLAGS.grad_error_bound,
       rng_key=train_rng_key,
+      mixture_ratio=FLAGS.mixture_ratio,
   )
   eval_agent = parts.EpsilonGreedyActor(
       preprocessor=preprocessor_builder(),

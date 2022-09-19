@@ -55,6 +55,7 @@ class AdDqn(parts.Agent):
       target_network_update_period: int,
       grad_error_bound: float,
       rng_key: parts.PRNGKey,
+      mixture_ratio: float,
   ):
     self._preprocessor = preprocessor
     self._replay = replay
@@ -77,11 +78,13 @@ class AdDqn(parts.Agent):
     self._frame_t = -1  # Current frame index.
     self._statistics = {'state_value': np.nan}
 
+    self._mixture_ratio = mixture_ratio
+
     # Define jitted loss, update, and policy functions here instead of as
     # class methods, to emphasize that these are meant to be pure functions
     # and should not access the agent object's state via `self`.
 
-    def loss_fn(online_params, target_params, transitions, rng_key):
+    def loss_fn(online_params, target_params, transitions, rng_key, mixture_ratio):
       """Calculates loss given network parameters and transitions."""
       # Compute Q value distributions.
       _, online_key, target_key = jax.random.split(rng_key, 3)
@@ -99,6 +102,7 @@ class AdDqn(parts.Agent):
           dist_q_target_t,  # No double Q-learning here.
           dist_q_target_t,
           dist_q_target_tm1,  # ADDED BY MASTANE: target dist for mixture update
+          mixture_ratio,  # mixture update parameter
       )
       td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
                                      grad_error_bound)
