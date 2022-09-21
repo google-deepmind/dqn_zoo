@@ -36,7 +36,7 @@ from jax.config import config
 import jax.numpy as jnp
 import numpy as np
 import optax
-
+import wandb
 from dqn_zoo import atari_data
 from dqn_zoo import gym_atari
 from dqn_zoo import networks
@@ -63,7 +63,7 @@ flags.DEFINE_float('exploration_epsilon_decay_frame_fraction', 0.02, '')
 flags.DEFINE_float('eval_exploration_epsilon', 0.05, '')
 flags.DEFINE_integer('target_network_update_period', int(4e4), '')
 flags.DEFINE_float('grad_error_bound', 1. / 32, '')
-flags.DEFINE_float('learning_rate', 0.00025, '')
+flags.DEFINE_float('learning_rate', 0.00005, '')
 flags.DEFINE_float('optimizer_epsilon', 0.01 / 32**2, '')
 flags.DEFINE_float('additional_discount', 0.99, '')
 flags.DEFINE_float('max_abs_reward', 1., '')
@@ -72,14 +72,16 @@ flags.DEFINE_integer('num_iterations', 200, '')
 flags.DEFINE_integer('num_train_frames', int(1e6), '')  # Per iteration.
 flags.DEFINE_integer('num_eval_frames', int(5e5), '')  # Per iteration.
 flags.DEFINE_integer('learn_period', 16, '')
-flags.DEFINE_string('results_csv_path', '/tmp/results.csv', '')
+flags.DEFINE_string('results_csv_path', './results_lr_1_pong_200m.csv', '')
 
 flags.DEFINE_integer('num_avars', 51, '')
-flags.DEFINE_float('mixture_ratio', 0.00025, '')
+flags.DEFINE_float('mixture_ratio', 0.8, '')
 
 
 def main(argv):
   """Trains AD-DQN agent on Atari."""
+  #wandb.init(project='ad_dqn')
+
   del argv
   logging.info('AD-DQN on Atari on %s.', jax.lib.xla_bridge.get_backend().platform)
   random_state = np.random.RandomState(FLAGS.seed)
@@ -168,11 +170,11 @@ def main(argv):
   replay = replay_lib.TransitionReplay(FLAGS.replay_capacity, replay_structure,
                                        random_state, encoder, decoder)
 
-  optimizer = optax.rmsprop(
+  optimizer = optax.adam(
       learning_rate=FLAGS.learning_rate,
-      decay=0.95,
+      #decay=0.95,
       eps=FLAGS.optimizer_epsilon,
-      centered=True,
+      #centered=True,
   )
 
   train_rng_key, eval_rng_key = jax.random.split(rng_key)
@@ -223,6 +225,8 @@ def main(argv):
     train_seq_truncated = itertools.islice(train_seq, num_train_frames)
     train_trackers = parts.make_default_trackers(train_agent)
     train_stats = parts.generate_statistics(train_trackers, train_seq_truncated)
+    #wandb.watch(train_agent, log_freq=100)
+
 
     logging.info('Evaluation iteration %d.', state.iteration)
     eval_agent.network_params = train_agent.online_params
@@ -255,6 +259,8 @@ def main(argv):
     writer.write(collections.OrderedDict((n, v) for n, v, _ in log_output))
     state.iteration += 1
     checkpoint.save()
+    
+
 
   writer.close()
 
