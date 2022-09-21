@@ -26,15 +26,95 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-import ad_rlax as rlax
+import rlax
 
 from dqn_zoo import parts
 from dqn_zoo import processors
 from dqn_zoo import replay as replay_lib
 
 # Batch variant of avar_q_learning with fixed tau input across batch.
-_batch_avar_q_learning = jax.vmap(rlax.avar_q_learning)
 
+
+Array = chex.Array
+Numeric = chex.Numeric
+
+def avar_q_learning(
+    dist_q_tm1: Array,
+    a_tm1: Numeric,
+    r_t: Numeric,
+    discount_t: Numeric,
+    dist_q_t_selector: Array,
+    dist_q_t: Array,
+    dist_q_target_tm1: Array,
+    mixture_ratio: Numeric,
+    stop_target_gradients: bool = True,
+) -> Numeric:
+  """Implements Q-learning for avar-valued Q distributions.
+
+  See "xxxx" by
+  Achab et al. (https://arxiv.org/abs/xxxx).
+
+  Args:
+    dist_q_tm1: Q distribution at time t-1.
+    a_tm1: action index at time t-1.
+    r_t: reward at time t.
+    discount_t: discount at time t.
+    dist_q_t_selector: Q distribution at time t for selecting greedy action in
+      target policy. This is separate from dist_q_t as in Double Q-Learning, but
+      can be computed with the target network and a separate set of samples.
+    dist_q_t: target Q distribution at time t.
+    stop_target_gradients: bool indicating whether or not to apply stop gradient
+      to targets.
+
+  Returns:
+    AD-Q-learning temporal difference error.
+  """
+  chex.assert_rank([
+      dist_q_tm1, a_tm1, r_t, discount_t, dist_q_t_selector, dist_q_t, dist_q_target_tm1, mixture_ratio
+  ], [2, 0, 0, 0, 2, 2, 2, 0])
+  chex.assert_type([
+      dist_q_tm1, a_tm1, r_t, discount_t, dist_q_t_selector, dist_q_t, dist_q_target_tm1, mixture_ratio
+  ], [float, int, float, float, float, float, float, float])
+
+  # Only update the taken actions.
+  dist_qa_tm1 = dist_q_tm1[:, a_tm1]
+  dist_qa_target_tm1 = dist_q_target_tm1[:, a_tm1]
+
+  # Select target action according to greedy policy w.r.t. dist_q_t_selector.
+  q_t_selector = jnp.mean(dist_q_t_selector, axis=0)
+  a_t = jnp.argmax(q_t_selector)
+  dist_qa_t = dist_q_t[:, a_t]
+
+  # ADDED BY MASTANE
+  target_tm1 = r_t + discount_t * jnp.mean(dist_qa_t)
+  num_avars = dist_qa_tm1.shape[-1]
+  # take argsort on atoms, then reorder atoms and probabilities
+  probas = ( (1.0 - mixture_ratio) / jnp.float32( num_avars ) ) * jnp.ones_like( dist_qa_target_tm1 , dtype='float32')
+  probas = jnp.append(probas, mixture_ratio)
+  atoms_target_tm1 = jnp.append(dist_qa_target_tm1, target_tm1)
+  sigma = jnp.argsort( atoms_target_tm1 )
+  atoms_target_tm1 = atoms_target_tm1[sigma]
+  probas = probas[sigma]
+  # avar intervals
+  i_window = jnp.arange( 1, num_avars + 1 ) / jnp.float32( num_avars )  # avar integration segments
+  j_right = jnp.cumsum(probas)  # cumulative probabilities of the N+1 atoms
+  j_left = j_right - probas
+  i_window = jnp.expand_dims( i_window, axis=1 )
+  j_right = jnp.expand_dims( j_right, axis=0 )
+  j_left = jnp.expand_dims( j_left, axis=0 )
+  # compute avars
+  minij = jnp.minimum( i_window, j_right )
+  maxij = jnp.maximum( i_window - 1.0/ jnp.float32( num_avars ) , j_left )
+  lengths_inter = jnp.maximum( 0.0, minij - maxij )  # matrix of lengths of intersections of intervals [(i-1)/N, i/N] with [(j-1)/(N+1), j/(N+1)]
+  dist_target = jnp.float32( num_avars ) * jnp.dot(lengths_inter, atoms_target_tm1)
+
+  # Compute target, do not backpropagate into it.
+  dist_target = jax.lax.select(stop_target_gradients,
+                               jax.lax.stop_gradient(dist_target), dist_target)
+
+  return dist_target - dist_qa_tm1
+
+_batch_avar_q_learning = jax.vmap(avar_q_learning)
 
 class AdDqn(parts.Agent):
   """Atomic Distributional Deep Q-Network agent."""
@@ -102,20 +182,21 @@ class AdDqn(parts.Agent):
           dist_q_target_t,  # No double Q-learning here.
           dist_q_target_t,
           dist_q_target_tm1,  # ADDED BY MASTANE: target dist for mixture update
-          mixture_ratio,  # mixture update parameter
+          mixture_ratio * jnp.ones_like(transitions.r_t, dtype='float32'),  # mixture update parameter
       )
       td_errors = rlax.clip_gradient(td_errors, -grad_error_bound,
                                      grad_error_bound)
       losses = rlax.l2_loss(td_errors)
-      chex.assert_shape(losses, (self._batch_size,))
-      loss = jnp.mean(losses)
-      return loss
+      #chex.assert_shape(losses, (self._batch_size,))
+      loss = jnp.mean(losses, axis=-1)
+      chex.assert_shape(loss, (self._batch_size,))
+      return jnp.mean(loss)
 
-    def update(rng_key, opt_state, online_params, target_params, transitions):
+    def update(rng_key, opt_state, online_params, target_params, transitions,mixture_ratio):
       """Computes learning update from batch of replay transitions."""
       rng_key, update_key = jax.random.split(rng_key)
       d_loss_d_params = jax.grad(loss_fn)(online_params, target_params,
-                                          transitions, update_key)
+                                          transitions, update_key,mixture_ratio)
       updates, new_opt_state = optimizer.update(d_loss_d_params, opt_state)
       new_online_params = optax.apply_updates(online_params, updates)
       return rng_key, new_opt_state, new_online_params
@@ -187,6 +268,7 @@ class AdDqn(parts.Agent):
         self._online_params,
         self._target_params,
         transitions,
+        self._mixture_ratio
     )
 
   @property
