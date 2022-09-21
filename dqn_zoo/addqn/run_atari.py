@@ -36,7 +36,6 @@ from jax.config import config
 import jax.numpy as jnp
 import numpy as np
 import optax
-import wandb
 from dqn_zoo import atari_data
 from dqn_zoo import gym_atari
 from dqn_zoo import networks
