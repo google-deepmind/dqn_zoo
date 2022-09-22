@@ -1,7 +1,8 @@
 """
-Lvl 4
-axis
+Lvl 2
+plot the pdf
 """
+
 
 from pathlib import Path
 from argparse import ArgumentParser
@@ -9,9 +10,17 @@ from argparse import ArgumentParser
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib
 
-METHODS = ['dqn', 'qrdqn', 'rainbow']
+METHODS = ['dqn', 'double_q', 'qrdqn', 'addqn']
 
+def pretty_matplotlib_config(fontsize=15):
+    matplotlib.rcParams['pdf.fonttype'] = 42
+    matplotlib.rcParams['ps.fonttype'] = 42
+    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams.update({'font.size': fontsize})
+
+pretty_matplotlib_config(24)
 
 def parse_args():
     parser = ArgumentParser()
@@ -21,6 +30,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def main():
     args = parse_args()
     print(args)
@@ -28,19 +38,22 @@ def main():
     for method in METHODS:
         df = pd.read_csv(base_dir / f'{method}.csv')
         df = df[df.environment_name == args.environment_name]
+        df = df[df.frame < args.num_iterations*1e6]
 
         grouped = df.groupby('frame')
-        frames = grouped.frame.mean()
+        frames = grouped.frame.mean() / 1e6
         mean_score = grouped['eval_episode_return'].mean()
         min_score = grouped['eval_episode_return'].min()
         max_score = grouped['eval_episode_return'].max()
         # mean_score = df.group_by('frame')['eval_episode_return'].mean()
-        plt.plot(frames, mean_score)
+        plt.plot(frames, mean_score, label=method)
         plt.fill_between(frames, min_score, max_score, alpha=0.2)
 
+    plt.legend()
     plt.title(args.environment_name.capitalize())
-    plt.xlabel('Frames')
-    plt.ylabel('Game score')
+    plt.xlabel('Million frames')
+    plt.ylabel('Game score on evaluation')
+    plt.savefig(base_dir / f'{args.environment_name}.png', dpi=120)
     plt.show()
 
 

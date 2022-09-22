@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=$1 nohup python -m dqn_zoo.$3.run_atari --environment_name=$2 --jax_platform_name=gpu --results_csv_path=./addqn_50mln_$2.csv  &> nohup_$2.out &
+CUDA_VISIBLE_DEVICES=$1 nohup python -m dqn_zoo.$3.run_atari --environment_name=$2 --jax_platform_name=gpu --results_csv_path=./results/addqn_50mln_$2.csv  &> outputs/nohup_$2.out &
