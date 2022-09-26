@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""AD-DQN agent class."""
+"""SAD-DQN agent class."""
 
 # pylint: disable=g-bad-import-order
 
@@ -32,13 +32,13 @@ from dqn_zoo import parts
 from dqn_zoo import processors
 from dqn_zoo import replay as replay_lib
 
-# Batch variant of avar_q_learning with fixed tau input across batch.
+# Batch variant of sad_q_learning with fixed tau input across batch.
 
 
 Array = chex.Array
 Numeric = chex.Numeric
 
-def avar_q_learning(
+def sad_q_learning(
     dist_q_tm1: Array,
     a_tm1: Numeric,
     r_t: Numeric,
@@ -67,7 +67,7 @@ def avar_q_learning(
       to targets.
 
   Returns:
-    AD-Q-learning temporal difference error.
+    SAD-Q-learning temporal difference error.
   """
   chex.assert_rank([
       dist_q_tm1, a_tm1, r_t, discount_t, dist_q_t_selector, dist_q_t, dist_q_target_tm1, mixture_ratio
@@ -114,9 +114,9 @@ def avar_q_learning(
 
   return dist_target - dist_qa_tm1
 
-_batch_avar_q_learning = jax.vmap(avar_q_learning)
+_batch_sad_q_learning = jax.vmap(sad_q_learning)
 
-class AdDqn(parts.Agent):
+class SadDqn(parts.Agent):
   """Atomic Distributional Deep Q-Network agent."""
 
   def __init__(
@@ -174,7 +174,7 @@ class AdDqn(parts.Agent):
                                       transitions.s_t).q_dist
       dist_q_target_tm1 = network.apply(target_params, target_key,
                                       transitions.s_tm1).q_dist
-      td_errors = _batch_avar_q_learning(
+      td_errors = _batch_sad_q_learning(
           dist_q_tm1,
           transitions.a_tm1,
           transitions.r_t,
