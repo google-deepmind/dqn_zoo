@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('--environment_name', type=str, default='alien')
     parser.add_argument('--result_directory', type=str, default='logs')
     parser.add_argument('--smoothing', type=int, default=0)
+    parser.add_argument('--note', type=str, default='')
     args = parser.parse_args()
     return args
 
@@ -56,7 +57,7 @@ def main():
     plt.xlabel('Million frames')
     plt.ylabel('Game score on evaluation')
     # plt.savefig(base_dir / f'{args.environment_name}.png', dpi=120)
-    plt.savefig(base_dir / f'{args.environment_name}.pdf', dpi=120)
+    plt.savefig(base_dir / 'figures' / f'{args.environment_name}_{args.note}.pdf', dpi=120)
     plt.show()
 
 
