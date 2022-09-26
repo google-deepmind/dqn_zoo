@@ -90,8 +90,8 @@ def mad_q_learning(
   num_avars = dist_qa_tm1.shape[-1]
   # take argsort on atoms, then reorder atoms and probabilities
   probas = ( (1.0 - mixture_ratio) / jnp.float32( num_avars ) ) * jnp.ones_like( dist_qa_target_tm1 , dtype='float32')
-  probas = jnp.append(probas, mixture_ratio)
-  atoms_target_tm1 = jnp.append(dist_qa_target_tm1, target_tm1)
+  probas = jnp.append(probas, ( mixture_ratio / jnp.float32( num_avars ) ) * jnp.ones_like( dist_qa_t , dtype='float32'))
+  atoms_target_tm1 = jnp.append(dist_qa_target_tm1, r_t + discount_t * dist_qa_t)
   sigma = jnp.argsort( atoms_target_tm1 )
   atoms_target_tm1 = atoms_target_tm1[sigma]
   probas = probas[sigma]
