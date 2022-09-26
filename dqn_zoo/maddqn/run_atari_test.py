@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests for SAD-DQN."""
+"""Tests for MAD-DQN."""
 
 # pylint: disable=g-bad-import-order
 
@@ -20,7 +20,7 @@ from absl import flags
 from absl.testing import flagsaver
 from jax.config import config
 
-from dqn_zoo.saddqn import run_atari
+from dqn_zoo.maddqn import run_atari
 from absl.testing import absltest
 
 FLAGS = flags.FLAGS

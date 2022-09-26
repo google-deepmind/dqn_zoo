@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""An SAD-DQN agent training on Atari.
+"""An MAD-DQN agent training on Atari.
 
 From the paper xxxx
 xxxx
@@ -42,7 +42,7 @@ from dqn_zoo import networks
 from dqn_zoo import parts
 from dqn_zoo import processors
 from dqn_zoo import replay as replay_lib
-from dqn_zoo.saddqn import agent
+from dqn_zoo.maddqn import agent
 
 # Relevant flag values are expressed in terms of environment frames.
 FLAGS = flags.FLAGS
@@ -78,11 +78,11 @@ flags.DEFINE_float('mixture_ratio', 0.8, '')
 
 
 def main(argv):
-  """Trains SAD-DQN agent on Atari."""
+  """Trains MAD-DQN agent on Atari."""
   #wandb.init(project='ad_dqn')
 
   del argv
-  logging.info('SAD-DQN on Atari on %s.', jax.lib.xla_bridge.get_backend().platform)
+  logging.info('MAD-DQN on Atari on %s.', jax.lib.xla_bridge.get_backend().platform)
   random_state = np.random.RandomState(FLAGS.seed)
   rng_key = jax.random.PRNGKey(
       random_state.randint(-sys.maxsize - 1, sys.maxsize + 1, dtype=np.int64))
@@ -178,7 +178,7 @@ def main(argv):
 
   train_rng_key, eval_rng_key = jax.random.split(rng_key)
 
-  train_agent = agent.SadDqn(
+  train_agent = agent.MadDqn(
       preprocessor=preprocessor_builder(),
       sample_network_input=sample_network_input,
       network=network,
