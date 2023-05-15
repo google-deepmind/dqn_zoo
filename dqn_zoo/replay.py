@@ -644,9 +644,8 @@ class PrioritizedDistribution:
       return False, 'Active indices and their location should be the same size.'
     for j, i in enumerate(self._active_indices):
       if j != self._active_indices_location[i]:
-        return False, 'Active index location %d not correct for index %d.' % (
-            j,
-            i,
+        return False, (
+            'Active index location %d not correct for index %d.' % (j, i)
         )
 
     return self._sum_tree.check_valid()

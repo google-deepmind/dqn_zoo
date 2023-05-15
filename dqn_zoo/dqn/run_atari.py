@@ -33,7 +33,7 @@ import chex
 import dm_env
 import haiku as hk
 import jax
-from jax.config import config
+from jax import config
 import numpy as np
 import optax
 

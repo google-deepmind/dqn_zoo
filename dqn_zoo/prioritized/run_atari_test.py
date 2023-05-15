@@ -19,7 +19,7 @@
 
 from absl import flags
 from absl.testing import flagsaver
-from jax.config import config
+from jax import config
 
 from dqn_zoo.prioritized import run_atari
 from absl.testing import absltest
