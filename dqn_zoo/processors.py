@@ -372,7 +372,9 @@ def resize(shape: Tuple[int, ...]) -> Processor[[np.ndarray], np.ndarray]:
   image_shape = (shape[1], shape[0])
 
   def resize_fn(array):
-    image = Image.fromarray(array).resize(image_shape, Image.BILINEAR)
+    image = Image.fromarray(array).resize(
+        image_shape, Image.Resampling.BILINEAR
+    )
     return np.array(image, dtype=np.uint8)
 
   return resize_fn
