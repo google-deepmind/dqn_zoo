@@ -394,7 +394,7 @@ class AtariTest(absltest.TestCase):
     actions = []
     for _ in range(20):
       action = agent.step(timestep)
-      timestep = env.step(action)
+      timestep = env.step(np.int32(action))
       assert not timestep.last()
       actions.append(action)
 

@@ -89,6 +89,8 @@ class IqnEpsilonGreedyActor(parts.Agent):
     timestep = self._preprocessor(timestep)
 
     if timestep is None:  # Repeat action.
+      if self._action is None:
+        raise RuntimeError('Cannot repeat if action has never been selected.')
       return self._action
 
     s_t = timestep.observation
@@ -247,6 +249,8 @@ class Iqn(parts.Agent):
     timestep = self._preprocessor(timestep)
 
     if timestep is None:  # Repeat action.
+      if self._action is None:
+        raise RuntimeError('Cannot repeat if action has never been selected.')
       action = self._action
     else:
       action = self._action = self._act(timestep)

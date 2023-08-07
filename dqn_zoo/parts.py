@@ -166,6 +166,14 @@ class EpisodeTracker:
   ) -> None:
     """Accumulates statistics from timestep."""
     del (environment, agent, a_t)
+    if (
+        self._num_steps_since_reset is None
+        or self._num_steps_over_episodes is None
+        or self._episode_returns is None
+        or self._current_episode_rewards is None
+        or self._current_episode_step is None
+    ):
+      raise RuntimeError('reset() must be called before first call to step().')
 
     if timestep_t.first():
       if self._current_episode_rewards:
@@ -203,7 +211,19 @@ class EpisodeTracker:
 
     Returns:
       A dictionary of aggregated statistics.
+
+    Raises:
+      RuntimeError: If `reset()` was not called before `get()`.
     """
+    if (
+        self._num_steps_since_reset is None
+        or self._num_steps_over_episodes is None
+        or self._episode_returns is None
+        or self._current_episode_rewards is None
+        or self._current_episode_step is None
+    ):
+      raise RuntimeError('reset() must be called before first call to get().')
+
     if self._episode_returns:
       mean_episode_return = np.array(self._episode_returns).mean()
       current_episode_return = sum(self._current_episode_rewards)
@@ -249,6 +269,9 @@ class StepRateTracker:
     self._start = timeit.default_timer()
 
   def get(self) -> Mapping[Text, float]:
+    if self._num_steps_since_reset is None or self._start is None:
+      raise RuntimeError('reset() must be called before first call to get().')
+
     duration = timeit.default_timer() - self._start
     if self._num_steps_since_reset > 0:
       step_rate = self._num_steps_since_reset / duration
@@ -351,6 +374,8 @@ class EpsilonGreedyActor(Agent):
     timestep = self._preprocessor(timestep)
 
     if timestep is None:  # Repeat action.
+      if self._action is None:
+        raise RuntimeError('Cannot repeat if action has never been selected.')
       return self._action
 
     s_t = timestep.observation
