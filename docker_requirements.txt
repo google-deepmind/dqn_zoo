@@ -32,7 +32,7 @@ flatbuffers==2.0
 gast==0.5.3
 jmp==0.0.2
 opt-einsum==3.3.0
-scipy==1.8.1
+scipy==1.10.0
 six==1.16.0
 tabulate==0.8.10
 tensorflow-probability==0.17.0
