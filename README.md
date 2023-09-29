@@ -46,7 +46,7 @@ GPU with recent CUDA drivers.
     [sudoless docker](http://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user).
 
 1.  Verify the previous steps were successful by running: \
-    `docker run --gpus all --rm nvidia/cuda:11.1-base nvidia-smi`
+    `docker run --gpus all --rm nvidia/cuda:11.1.1-base nvidia-smi`
 
 1.  Download the script [`run.sh`](run.sh). This automatically downloads the
     Atari ROMs from http://www.atarimania.com. The ROMs are available here for
