@@ -20,7 +20,7 @@
 import collections
 import copy
 import itertools
-from typing import Any, Mapping, Sequence, Text
+from typing import Any, Mapping, Sequence
 
 import chex
 import dm_env
@@ -1107,12 +1107,12 @@ class NaiveSumTree:
   def capacity(self) -> int:
     return len(self._values)
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     return {
         'values': self._values,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     self._values = state['values']
 
 

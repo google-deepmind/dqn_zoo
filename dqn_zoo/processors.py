@@ -31,7 +31,7 @@ Conventions:
 # pylint: disable=g-bad-import-order
 
 import collections
-from typing import Any, Callable, List, Iterable, Optional, Sequence, Text, Tuple
+from typing import Any, Callable, List, Iterable, Optional, Sequence, Tuple
 
 import chex
 import dm_env
@@ -221,7 +221,7 @@ class TimestepBufferCondition:
 class ApplyToNamedTupleField:
   """Runs processors on a particular field of a named tuple."""
 
-  def __init__(self, field: Text, *processors: Processor[[Any], Any]):
+  def __init__(self, field: str, *processors: Processor[[Any], Any]):
     self._field = field
     self._processors = processors
 
@@ -401,7 +401,7 @@ def clip_reward(bound: float) -> Processor[[Optional[float]], Optional[float]]:
   return clip_reward_fn
 
 
-def show(prefix: Text) -> Processor[[Any], Any]:
+def show(prefix: str) -> Processor[[Any], Any]:
   """Prints value and passes through, for debugging."""
 
   def show_fn(value):

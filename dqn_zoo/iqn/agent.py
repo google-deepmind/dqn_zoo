@@ -17,7 +17,7 @@
 
 # pylint: disable=g-bad-import-order
 
-from typing import Any, Callable, Mapping, Text, Tuple
+from typing import Any, Callable, Mapping, Tuple
 
 from absl import logging
 import chex
@@ -108,7 +108,7 @@ class IqnEpsilonGreedyActor(parts.Agent):
     processors.reset(self._preprocessor)
     self._action = None
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves agent state as a dictionary (e.g. for serialization)."""
     # State contains network params to make agent easy to run from a checkpoint.
     return {
@@ -116,13 +116,13 @@ class IqnEpsilonGreedyActor(parts.Agent):
         'network_params': self.network_params,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets agent state from a (potentially de-serialized) dictionary."""
     self._rng_key = state['rng_key']
     self.network_params = state['network_params']
 
   @property
-  def statistics(self) -> Mapping[Text, float]:
+  def statistics(self) -> Mapping[str, float]:
     return {}
 
 
@@ -306,7 +306,7 @@ class Iqn(parts.Agent):
     return self._online_params
 
   @property
-  def statistics(self) -> Mapping[Text, float]:
+  def statistics(self) -> Mapping[str, float]:
     # Check for DeviceArrays in values as this can be very slow.
     assert all(
         not isinstance(x, jnp.DeviceArray) for x in self._statistics.values()
@@ -318,7 +318,7 @@ class Iqn(parts.Agent):
     """Returns epsilon value currently used by (eps-greedy) behavior policy."""
     return self._exploration_epsilon(self._frame_t)
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves agent state as a dictionary (e.g. for serialization)."""
     state = {
         'rng_key': self._rng_key,
@@ -330,7 +330,7 @@ class Iqn(parts.Agent):
     }
     return state
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets agent state from a (potentially de-serialized) dictionary."""
     self._rng_key = state['rng_key']
     self._frame_t = state['frame_t']

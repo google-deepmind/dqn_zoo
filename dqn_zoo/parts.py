@@ -22,7 +22,7 @@ import collections
 import csv
 import os
 import timeit
-from typing import Any, Iterable, Mapping, Optional, Text, Tuple, Union
+from typing import Any, Iterable, Mapping, Optional, Tuple, Union
 
 import distrax
 import dm_env
@@ -54,16 +54,16 @@ class Agent(abc.ABC):
     """
 
   @abc.abstractmethod
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves agent state as a dictionary (e.g. for serialization)."""
 
   @abc.abstractmethod
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets agent state from a (potentially de-serialized) dictionary."""
 
   @property
   @abc.abstractmethod
-  def statistics(self) -> Mapping[Text, float]:
+  def statistics(self) -> Mapping[str, float]:
     """Returns current agent statistics as a dictionary."""
 
 
@@ -132,7 +132,7 @@ def generate_statistics(
             Optional[Action],
         ]
     ],
-) -> Mapping[Text, Any]:
+) -> Mapping[str, Any]:
   """Generates statistics from a sequence of timestep and actions."""
   # Only reset at the start, not between episodes.
   for tracker in trackers:
@@ -201,7 +201,7 @@ class EpisodeTracker:
     self._current_episode_step = 0
     self._current_episode_rewards = []
 
-  def get(self) -> Mapping[Text, Union[int, float, None]]:
+  def get(self) -> Mapping[str, Union[int, float, None]]:
     """Aggregates statistics and returns as a dictionary.
 
     Here the convention is `episode_return` is set to `current_episode_return`
@@ -268,7 +268,7 @@ class StepRateTracker:
     self._num_steps_since_reset = 0
     self._start = timeit.default_timer()
 
-  def get(self) -> Mapping[Text, float]:
+  def get(self) -> Mapping[str, float]:
     if self._num_steps_since_reset is None or self._start is None:
       raise RuntimeError('reset() must be called before first call to get().')
 
@@ -324,7 +324,7 @@ class UnbiasedExponentialWeightedAverageAgentTracker:
     # get() may be called before step() so ensure statistics are initialized.
     self._statistics = dict(self._initial_statistics)
 
-  def get(self) -> Mapping[Text, float]:
+  def get(self) -> Mapping[str, float]:
     """Returns current accumulated statistics."""
     return self._statistics
 
@@ -393,7 +393,7 @@ class EpsilonGreedyActor(Agent):
     processors.reset(self._preprocessor)
     self._action = None
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves agent state as a dictionary (e.g. for serialization)."""
     # State contains network params to make agent easy to run from a checkpoint.
     return {
@@ -401,13 +401,13 @@ class EpsilonGreedyActor(Agent):
         'network_params': self.network_params,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets agent state from a (potentially de-serialized) dictionary."""
     self._rng_key = state['rng_key']
     self.network_params = state['network_params']
 
   @property
-  def statistics(self) -> Mapping[Text, float]:
+  def statistics(self) -> Mapping[str, float]:
     return {}
 
 
@@ -448,7 +448,7 @@ class CsvWriter:
   contain the same dictionary keys.
   """
 
-  def __init__(self, fname: Text):
+  def __init__(self, fname: str):
     """Initializes a `CsvWriter`.
 
     Args:
@@ -481,14 +481,14 @@ class CsvWriter:
     """Closes the `CsvWriter`."""
     pass
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves `CsvWriter` state as a `dict` (e.g. for serialization)."""
     return {
         'header_written': self._header_written,
         'fieldnames': self._fieldnames,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets `CsvWriter` state from a (potentially de-serialized) dictionary."""
     self._header_written = state['header_written']
     self._fieldnames = state['fieldnames']

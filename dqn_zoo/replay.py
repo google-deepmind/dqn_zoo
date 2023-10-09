@@ -19,7 +19,7 @@
 
 import collections
 import typing
-from typing import Any, Callable, Generic, Iterable, Mapping, Optional, Sequence, Text, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, Mapping, Optional, Sequence, Tuple, TypeVar
 
 import dm_env
 import numpy as np
@@ -90,14 +90,14 @@ class UniformDistribution:
     """Number of IDs currently tracked."""
     return len(self._ids)
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves distribution state as a dictionary (e.g. for serialization)."""
     return {
         'ids': self._ids,
         'id_to_index': self._id_to_index,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets distribution state from a (potentially de-serialized) dictionary."""
     self._ids = state['ids']
     self._id_to_index = state['id_to_index']
@@ -176,7 +176,7 @@ class TransitionReplay(Generic[ReplayStructure]):
     """Total capacity of replay (max number of items stored at any one time)."""
     return self._capacity
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves replay state as a dictionary (e.g. for serialization)."""
     return {
         # Serialize OrderedDict as a simpler, more common data structure.
@@ -185,7 +185,7 @@ class TransitionReplay(Generic[ReplayStructure]):
         'distribution': self._distribution.get_state(),
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets replay state from a (potentially de-serialized) dictionary."""
     self._storage = collections.OrderedDict(state['storage'])
     self._t = state['t']
@@ -331,7 +331,7 @@ class SumTree:
     """Current sum tree capacity (exceeding it will trigger resizing)."""
     return self._first_leaf
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves sum tree state as a dictionary (e.g. for serialization)."""
     return {
         'size': self._size,
@@ -339,7 +339,7 @@ class SumTree:
         'first_leaf': self._first_leaf,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets sum tree state from a (potentially de-serialized) dictionary."""
     self._size = state['size']
     self._storage = state['storage']
@@ -603,7 +603,7 @@ class PrioritizedDistribution:
     """Number of IDs currently tracked."""
     return len(self._id_to_index)
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves distribution state as a dictionary (e.g. for serialization)."""
     return {
         'sum_tree': self._sum_tree.get_state(),
@@ -614,7 +614,7 @@ class PrioritizedDistribution:
         'active_indices_location': self._active_indices_location,
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets distribution state from a (potentially de-serialized) dictionary."""
     self._sum_tree.set_state(state['sum_tree'])
     self._id_to_index = state['id_to_index']
@@ -744,7 +744,7 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
     """Importance sampling exponent at current step."""
     return self._importance_sampling_exponent(self._t)
 
-  def get_state(self) -> Mapping[Text, Any]:
+  def get_state(self) -> Mapping[str, Any]:
     """Retrieves replay state as a dictionary (e.g. for serialization)."""
     return {
         # Serialize OrderedDict as a simpler, more common data structure.
@@ -753,7 +753,7 @@ class PrioritizedTransitionReplay(Generic[ReplayStructure]):
         'distribution': self._distribution.get_state(),
     }
 
-  def set_state(self, state: Mapping[Text, Any]) -> None:
+  def set_state(self, state: Mapping[str, Any]) -> None:
     """Sets replay state from a (potentially de-serialized) dictionary."""
     self._storage = collections.OrderedDict(state['storage'])
     self._t = state['t']
