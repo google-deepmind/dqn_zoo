@@ -24,7 +24,8 @@
 # * Install Docker version 19.03 or later for the --gpus options.
 # * Install NVIDIA Container Toolkit.
 # * Enable sudoless docker.
-# * Verify with: `docker run --gpus all --rm nvidia/cuda:11.1-base nvidia-smi`.
+# * Verify installation, e.g. with:
+#   `docker run --gpus all --rm nvidia/cuda:11.1.1-base nvidia-smi`.
 
 # To remove all containers run:
 # `docker rm -vf $(docker ps -a -q)`
