@@ -1006,6 +1006,7 @@ class SumTreeTest(parameterized.TestCase):
       sum_tree.set([1], [np.inf])
 
   def test_set_all_cannot_add_negative_nan_or_inf_values(self):
+
     with self.assertRaises(ValueError):
       replay_lib.SumTree().set_all([1, -1])
 

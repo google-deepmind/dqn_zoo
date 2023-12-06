@@ -10,7 +10,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get install -y python3.9=3.9.5-3ubuntu0~20.04.1
 
 # Install pip.
-RUN apt-get install -y python3-pip=20.0.2-5ubuntu1.9
+RUN apt-get install -y python3-pip
 RUN python3.9 -m pip install --upgrade pip==22.1.2
 
 # Install wget and unrar to download and extract ROMs.
