@@ -22,7 +22,7 @@ import collections
 import csv
 import os
 import timeit
-from typing import Any, Iterable, Mapping, Optional, Tuple, Union
+from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 import distrax
 import dm_env
@@ -123,7 +123,7 @@ def run_loop(
 
 
 def generate_statistics(
-    trackers: Iterable[Any],
+    trackers: Sequence[Any],
     timestep_action_sequence: Iterable[
         Tuple[
             dm_env.Environment,
@@ -329,7 +329,7 @@ class UnbiasedExponentialWeightedAverageAgentTracker:
     return self._statistics
 
 
-def make_default_trackers(initial_agent: Agent):
+def make_default_trackers(initial_agent: Agent) -> Sequence[Any]:
   return [
       EpisodeTracker(),
       StepRateTracker(),
@@ -461,7 +461,7 @@ class CsvWriter:
     self._header_written = False
     self._fieldnames = None
 
-  def write(self, values: collections.OrderedDict) -> None:
+  def write(self, values: collections.OrderedDict[str, float]) -> None:
     """Appends given values as new row to CSV file."""
     if self._fieldnames is None:
       self._fieldnames = values.keys()
@@ -479,7 +479,6 @@ class CsvWriter:
 
   def close(self) -> None:
     """Closes the `CsvWriter`."""
-    pass
 
   def get_state(self) -> Mapping[str, Any]:
     """Retrieves `CsvWriter` state as a `dict` (e.g. for serialization)."""
